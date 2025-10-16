@@ -1,0 +1,115 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    /* PowerScan Theme */
+    --background: 0 0% 96%;
+    --foreground: 0 0% 29%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 29%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 29%;
+
+    /* Primary: Yellow (#ffc107) */
+    --primary: 45 100% 51%;
+    --primary-foreground: 0 0% 29%;
+
+    /* Secondary: Orange (#ff9800) */
+    --secondary: 36 100% 50%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --accent: 45 100% 51%;
+    --accent-foreground: 0 0% 29%;
+
+    --destructive: 4 90% 58%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 45 100% 51%;
+
+    --radius: 0.5rem;
+
+    /* Sidebar: Dark Gray (#4a4a4a) */
+    --sidebar-background: 0 0% 29%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 45 100% 51%;
+    --sidebar-primary-foreground: 0 0% 29%;
+    --sidebar-accent: 0 0% 35%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 0 0% 35%;
+    --sidebar-ring: 45 100% 51%;
+
+    /* Status colors */
+    --status-normal: 123 43% 45%;
+    --status-warning: 38 100% 50%;
+    --status-critical: 4 90% 58%;
+
+    /* Chart colors */
+    --chart-1: 123 43% 45%;
+    --chart-2: 38 100% 50%;
+    --chart-3: 4 90% 58%;
+    --chart-4: 207 90% 54%;
+    --chart-5: 280 64% 52%;
+  }
+
+  .dark {
+    --background: 0 0% 15%;
+    --foreground: 0 0% 98%;
+
+    --card: 0 0% 20%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 0 0% 20%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 45 100% 51%;
+    --primary-foreground: 0 0% 29%;
+
+    --secondary: 36 100% 50%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 0 0% 25%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 45 100% 51%;
+    --accent-foreground: 0 0% 29%;
+
+    --destructive: 4 90% 58%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 0 0% 25%;
+    --input: 0 0% 25%;
+    --ring: 45 100% 51%;
+    
+    --sidebar-background: 0 0% 15%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 45 100% 51%;
+    --sidebar-primary-foreground: 0 0% 29%;
+    --sidebar-accent: 0 0% 20%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 0 0% 25%;
+    --sidebar-ring: 45 100% 51%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
