@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -6,16 +6,26 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Plus } from "lucide-react";
-import { MapContainer, TileLayer } from "react-leaflet";
-import type { LatLngExpression } from "leaflet";
+import { Plus, Upload } from "lucide-react";
+import { MapContainer, TileLayer, GeoJSON, useMap } from "react-leaflet";
+import type { Map as LeafletMap } from "leaflet";
+import * as toGeoJSON from "@tmcw/togeojson";
+import { toast } from "@/hooks/use-toast";
 import "leaflet/dist/leaflet.css";
+
+// Map reference component
+function MapController({ mapRef }: { mapRef: React.MutableRefObject<LeafletMap | null> }) {
+  const map = useMap();
+  mapRef.current = map;
+  return null;
+}
 
 interface Feeder {
   id: string;
   feeder: string;
   ea: string;
   region: string;
+  coordinates?: [number, number];
 }
 
 const dummyFeeders: Feeder[] = [
@@ -50,6 +60,10 @@ export default function Feeders() {
   const [currentPage, setCurrentPage] = useState(1);
   const [mapType, setMapType] = useState("streets");
   const [selectedLayers, setSelectedLayers] = useState<string[]>(layerOptions.map(opt => opt.id));
+  const [kmlData, setKmlData] = useState<any>(null);
+  const [selectedFeeder, setSelectedFeeder] = useState<string | null>(null);
+  const mapRef = useRef<LeafletMap | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const filteredFeeders = dummyFeeders.filter((feeder) =>
     Object.values(feeder).some((value) =>
@@ -72,19 +86,68 @@ export default function Feeders() {
     );
   };
 
+  const handleKmlUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const kmlText = e.target?.result as string;
+        const parser = new DOMParser();
+        const kml = parser.parseFromString(kmlText, "text/xml");
+        const geoJson = toGeoJSON.kml(kml);
+        setKmlData(geoJson);
+        toast({
+          title: "KML file loaded",
+          description: "The KML file has been successfully loaded on the map.",
+        });
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Failed to parse KML file.",
+          variant: "destructive",
+        });
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleFeederClick = (feeder: Feeder) => {
+    setSelectedFeeder(feeder.id);
+    if (feeder.coordinates && mapRef.current) {
+      mapRef.current.setView(feeder.coordinates, 15, {
+        animate: true,
+      });
+    }
+  };
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 h-screen flex flex-col">
+      <div className="flex items-center justify-between flex-shrink-0">
         <h1 className="text-3xl font-bold">Feeders</h1>
-        <Button>
-          <Plus className="w-4 h-4 mr-2" />
-          Add
-        </Button>
+        <div className="flex gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".kml"
+            onChange={handleKmlUpload}
+            className="hidden"
+          />
+          <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+            <Upload className="w-4 h-4 mr-2" />
+            Upload KML
+          </Button>
+          <Button>
+            <Plus className="w-4 h-4 mr-2" />
+            Add
+          </Button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-12 gap-6">
+      <div className="grid grid-cols-12 gap-6 flex-1 overflow-hidden">
         {/* Left Sidebar - Feeder List */}
-        <div className="col-span-3 space-y-4">
+        <div className="col-span-3 space-y-4 flex flex-col overflow-hidden">
           <div>
             <Label className="text-sm mb-2 block">Search:</Label>
             <Input
@@ -94,29 +157,35 @@ export default function Feeders() {
             />
           </div>
 
-          <Card className="overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-12"></TableHead>
-                  <TableHead>FEEDER</TableHead>
-                  <TableHead>EA</TableHead>
-                  <TableHead>REGION</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {paginatedFeeders.map((feeder) => (
-                  <TableRow key={feeder.id} className="cursor-pointer hover:bg-muted/50">
-                    <TableCell>
-                      <Checkbox />
-                    </TableCell>
-                    <TableCell className="font-medium">{feeder.feeder}</TableCell>
-                    <TableCell>{feeder.ea}</TableCell>
-                    <TableCell>{feeder.region}</TableCell>
+          <Card className="overflow-hidden flex-1 flex flex-col">
+            <div className="overflow-auto flex-1">
+              <Table>
+                <TableHeader className="sticky top-0 bg-background z-10">
+                  <TableRow>
+                    <TableHead className="w-12"></TableHead>
+                    <TableHead>FEEDER</TableHead>
+                    <TableHead>EA</TableHead>
+                    <TableHead>REGION</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {paginatedFeeders.map((feeder) => (
+                    <TableRow 
+                      key={feeder.id} 
+                      className={`cursor-pointer hover:bg-muted/50 ${selectedFeeder === feeder.id ? 'bg-primary/10' : ''}`}
+                      onClick={() => handleFeederClick(feeder)}
+                    >
+                      <TableCell>
+                        <Checkbox />
+                      </TableCell>
+                      <TableCell className="font-medium">{feeder.feeder}</TableCell>
+                      <TableCell>{feeder.ea}</TableCell>
+                      <TableCell>{feeder.region}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </Card>
 
           <div className="flex justify-center gap-2">
@@ -140,16 +209,17 @@ export default function Feeders() {
         </div>
 
         {/* Map Area */}
-        <div className="col-span-9 relative">
-          <Card className="h-[700px] overflow-hidden">
+        <div className="col-span-9 relative h-full">
+          <Card className="h-full overflow-hidden">
             <MapContainer
-              {...({
-                center: [40.7128, -74.0060],
+              {...{
+                center: [40.7128, -74.0060] as [number, number],
                 zoom: 13,
                 scrollWheelZoom: true,
                 style: { height: "100%", width: "100%" }
-              } as any)}
+              } as any}
             >
+              <MapController mapRef={mapRef} />
               <TileLayer
                 url={
                   mapType === "satellite"
@@ -157,6 +227,16 @@ export default function Feeders() {
                     : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 }
               />
+              {kmlData && (
+                <GeoJSON
+                  data={kmlData}
+                  pathOptions={{
+                    color: "#2563eb",
+                    weight: 3,
+                    opacity: 0.8,
+                  }}
+                />
+              )}
             </MapContainer>
           </Card>
 
