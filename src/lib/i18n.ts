@@ -82,6 +82,23 @@ const resources = {
       date: 'Date',
       noInspections: 'No inspections yet',
       clientCreatedMock: 'Client created successfully (mock data)',
+      home: 'Home',
+      comingSoon: 'This feature is coming soon',
+
+      // Inspections submenus
+      distribution: 'Distribution',
+      transmission: 'Transmission',
+
+      // System submenus
+      system: 'System',
+      elements: 'Elements',
+      lamps: 'Lamps',
+      cars: 'Cars',
+      actions: 'Actions',
+      methods: 'Methods',
+      feeders: 'Feeders',
+      eas: 'EAs',
+      alarms: 'Alarms',
     },
   },
   es: {
@@ -163,6 +180,23 @@ const resources = {
       date: 'Fecha',
       noInspections: 'Aún no hay inspecciones',
       clientCreatedMock: 'Cliente creado exitosamente (datos de prueba)',
+      home: 'Inicio',
+      comingSoon: 'Esta función estará disponible pronto',
+
+      // Inspections submenus
+      distribution: 'Distribución',
+      transmission: 'Transmisión',
+
+      // System submenus
+      system: 'Sistema',
+      elements: 'Elementos',
+      lamps: 'Lámparas',
+      cars: 'Vehículos',
+      actions: 'Acciones',
+      methods: 'Métodos',
+      feeders: 'Alimentadores',
+      eas: 'EAs',
+      alarms: 'Alarmas',
     },
   },
   pt: {
@@ -244,6 +278,23 @@ const resources = {
       date: 'Data',
       noInspections: 'Ainda não há inspeções',
       clientCreatedMock: 'Cliente criado com sucesso (dados de teste)',
+      home: 'Início',
+      comingSoon: 'Este recurso estará disponível em breve',
+
+      // Inspections submenus
+      distribution: 'Distribuição',
+      transmission: 'Transmissão',
+
+      // System submenus
+      system: 'Sistema',
+      elements: 'Elementos',
+      lamps: 'Lâmpadas',
+      cars: 'Veículos',
+      actions: 'Ações',
+      methods: 'Métodos',
+      feeders: 'Alimentadores',
+      eas: 'EAs',
+      alarms: 'Alarmes',
     },
   },
 };

@@ -1,7 +1,9 @@
-import { ChartBar as BarChart3, Chrome as Home, FileText, Map, Settings, Users, X, Upload, CircleUser as UserCircle, LogOut } from "lucide-react";
+import { ChartBar as BarChart3, Chrome as Home, FileText, Map, Settings, Users, X, Upload, CircleUser as UserCircle, LogOut, ChevronDown, ChevronRight, Zap, Radio, Box, Lightbulb, Car, Activity, Wrench, Plug, Wifi, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTranslation } from "react-i18next";
+import { useState } from "react";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -11,9 +13,25 @@ interface SidebarProps {
   currentView: string;
 }
 
+interface MenuItem {
+  icon: any;
+  label: string;
+  view: string;
+  subItems?: { label: string; view: string; icon?: any }[];
+}
+
 export function Sidebar({ isOpen, onClose, onNavigate, onOpenProfile, currentView }: SidebarProps) {
   const { profile, signOut, isAdmin, isClient } = useAuth();
   const { t } = useTranslation();
+  const [expandedMenus, setExpandedMenus] = useState<string[]>([]);
+
+  const toggleMenu = (view: string) => {
+    setExpandedMenus(prev =>
+      prev.includes(view)
+        ? prev.filter(v => v !== view)
+        : [...prev, view]
+    );
+  };
 
   const getMenuSections = () => {
     if (isAdmin) {
@@ -22,6 +40,30 @@ export function Sidebar({ isOpen, onClose, onNavigate, onOpenProfile, currentVie
           title: t('main'),
           items: [
             { icon: Home, label: t('dashboard'), view: "dashboard" },
+            {
+              icon: Upload,
+              label: t('inspections'),
+              view: "inspections",
+              subItems: [
+                { label: t('distribution'), view: "inspections/distribution", icon: Zap },
+                { label: t('transmission'), view: "inspections/transmission", icon: Radio },
+              ]
+            },
+            {
+              icon: Settings,
+              label: t('system'),
+              view: "system",
+              subItems: [
+                { label: t('elements'), view: "system/elements", icon: Box },
+                { label: t('lamps'), view: "system/lamps", icon: Lightbulb },
+                { label: t('cars'), view: "system/cars", icon: Car },
+                { label: t('actions'), view: "system/actions", icon: Activity },
+                { label: t('methods'), view: "system/methods", icon: Wrench },
+                { label: t('feeders'), view: "system/feeders", icon: Plug },
+                { label: t('eas'), view: "system/eas", icon: Wifi },
+                { label: t('alarms'), view: "system/alarms", icon: Bell },
+              ]
+            },
             { icon: Users, label: t('clients'), view: "clients" },
           ],
         },
@@ -58,7 +100,7 @@ export function Sidebar({ isOpen, onClose, onNavigate, onOpenProfile, currentVie
       {/* Sidebar */}
       <aside
         className={`
-          fixed top-0 left-0 z-50 h-screen w-60 bg-sidebar border-r border-sidebar-border
+          fixed top-0 left-0 z-50 h-screen w-60 bg-sidebar border-r border-sidebar-border flex flex-col
           transition-transform duration-300 ease-in-out
           lg:translate-x-0 lg:z-30
           ${isOpen ? "translate-x-0" : "-translate-x-full"}
@@ -75,7 +117,7 @@ export function Sidebar({ isOpen, onClose, onNavigate, onOpenProfile, currentVie
         </Button>
 
         {/* Logo */}
-        <div className="p-4 border-b border-sidebar-border">
+        <div className="p-4 border-b border-sidebar-border flex-shrink-0">
           <div className="flex items-center gap-2">
             <div className="w-10 h-10 rounded-lg bg-sidebar-primary flex items-center justify-center">
               <span className="text-xl font-bold text-sidebar-primary-foreground">P</span>
@@ -85,7 +127,8 @@ export function Sidebar({ isOpen, onClose, onNavigate, onOpenProfile, currentVie
         </div>
 
         {/* Navigation */}
-        <nav className="p-4 space-y-6">
+        <ScrollArea className="flex-1">
+          <nav className="p-4 space-y-6">
           {menuSections.map((section, sectionIdx) => (
             <div key={sectionIdx}>
               <h3 className="text-xs font-semibold text-sidebar-foreground/60 uppercase tracking-wider mb-2">
@@ -94,35 +137,75 @@ export function Sidebar({ isOpen, onClose, onNavigate, onOpenProfile, currentVie
               <div className="space-y-1">
                 {section.items.map((item, itemIdx) => {
                   const Icon = item.icon;
-                  const isActive = currentView === item.view;
+                  const isActive = currentView === item.view || currentView.startsWith(item.view + '/');
+                  const isExpanded = expandedMenus.includes(item.view);
+                  const hasSubItems = item.subItems && item.subItems.length > 0;
+
                   return (
-                    <Button
-                      key={itemIdx}
-                      variant={isActive ? "default" : "ghost"}
-                      onClick={() => {
-                        onNavigate(item.view);
-                        onClose();
-                      }}
-                      className={`
-                        w-full justify-start gap-3
-                        ${isActive
-                          ? "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90"
-                          : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                        }
-                      `}
-                    >
-                      <Icon className="w-4 h-4" />
-                      {item.label}
-                    </Button>
+                    <div key={itemIdx}>
+                      <Button
+                        variant={isActive && !hasSubItems ? "default" : "ghost"}
+                        onClick={() => {
+                          if (hasSubItems) {
+                            toggleMenu(item.view);
+                          } else {
+                            onNavigate(item.view);
+                            onClose();
+                          }
+                        }}
+                        className={`
+                          w-full justify-start gap-3
+                          ${isActive && !hasSubItems
+                            ? "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90"
+                            : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                          }
+                        `}
+                      >
+                        <Icon className="w-4 h-4" />
+                        <span className="flex-1 text-left">{item.label}</span>
+                        {hasSubItems && (
+                          isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />
+                        )}
+                      </Button>
+                      {hasSubItems && isExpanded && (
+                        <div className="ml-7 mt-1 space-y-1">
+                          {item.subItems!.map((subItem, subIdx) => {
+                            const isSubActive = currentView === subItem.view;
+                            const SubIcon = subItem.icon;
+                            return (
+                              <Button
+                                key={subIdx}
+                                variant={isSubActive ? "default" : "ghost"}
+                                onClick={() => {
+                                  onNavigate(subItem.view);
+                                  onClose();
+                                }}
+                                className={`
+                                  w-full justify-start text-sm gap-2
+                                  ${isSubActive
+                                    ? "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90"
+                                    : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                                  }
+                                `}
+                              >
+                                {SubIcon && <SubIcon className="w-3.5 h-3.5" />}
+                                {subItem.label}
+                              </Button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
               </div>
             </div>
           ))}
-        </nav>
+          </nav>
+        </ScrollArea>
 
         {/* User Info & Logout */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-sidebar-border bg-sidebar">
+        <div className="flex-shrink-0 p-4 border-t border-sidebar-border bg-sidebar">
           <div className="space-y-3">
             <button
               onClick={() => {

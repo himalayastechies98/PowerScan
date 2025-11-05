@@ -1,22 +1,26 @@
-# Welcome to your Project
+# Welcome to your Lovable project
 
-## Project Info
+## Project info
 
-This repository contains your application’s source code.
+**URL**: https://lovable.dev/projects/d9704fde-575e-4b8e-b799-eb355a05bbbb
 
-## How Can I Edit This Code?
+## How can I edit this code?
 
-You have several options for editing and running this project locally.
+There are several ways of editing your application.
 
----
+**Use Lovable**
 
-### 🧑‍💻 Use Your Preferred IDE
+Simply visit the [Lovable Project](https://lovable.dev/projects/d9704fde-575e-4b8e-b799-eb355a05bbbb) and start prompting.
 
-If you want to work locally using your own development environment (VS Code, WebStorm, etc.), you can clone this repository and start developing right away.
+Changes made via Lovable will be committed automatically to this repo.
 
-Make sure you have **Node.js** and **npm** installed — we recommend using [nvm](https://github.com/nvm-sh/nvm#installing-and-updating) for easy version management.
+**Use your preferred IDE**
 
-#### Steps:
+If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+
+The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+
+Follow these steps:
 
 ```sh
 # Step 1: Clone the repository using the project's Git URL.
@@ -26,66 +30,44 @@ git clone <YOUR_GIT_URL>
 cd <YOUR_PROJECT_NAME>
 
 # Step 3: Install the necessary dependencies.
-npm install
+npm i
 
 # Step 4: Start the development server with auto-reloading and an instant preview.
 npm run dev
 ```
 
----
+**Edit a file directly in GitHub**
 
-### ✏️ Edit a File Directly in GitHub
+- Navigate to the desired file(s).
+- Click the "Edit" button (pencil icon) at the top right of the file view.
+- Make your changes and commit the changes.
 
-* Navigate to the desired file(s) in your repository.
-* Click the **Edit** button (pencil icon) at the top right of the file view.
-* Make your changes and commit them directly from the browser.
+**Use GitHub Codespaces**
 
----
+- Navigate to the main page of your repository.
+- Click on the "Code" button (green button) near the top right.
+- Select the "Codespaces" tab.
+- Click on "New codespace" to launch a new Codespace environment.
+- Edit files directly within the Codespace and commit and push your changes once you're done.
 
-### 🧩 Use GitHub Codespaces
-
-If you prefer a cloud-based development environment, you can use **GitHub Codespaces**.
-
-1. Navigate to the main page of your repository.
-2. Click the **Code** button (green button) near the top right.
-3. Select the **Codespaces** tab.
-4. Click **New codespace** to launch a development environment in the browser.
-5. Edit files, run the app, and commit your changes as needed.
-
----
-
-## 🛠️ Technologies Used
+## What technologies are used for this project?
 
 This project is built with:
 
-* **Vite**
-* **TypeScript**
-* **React**
-* **shadcn-ui**
-* **Tailwind CSS**
+- Vite
+- TypeScript
+- React
+- shadcn-ui
+- Tailwind CSS
 
----
+## How can I deploy this project?
 
-## 🚀 Deployment
+Simply open [Lovable](https://lovable.dev/projects/d9704fde-575e-4b8e-b799-eb355a05bbbb) and click on Share -> Publish.
 
-You can deploy this project using any preferred hosting platform, such as:
+## Can I connect a custom domain to my Lovable project?
 
-* **Vercel**
-* **Netlify**
-* **GitHub Pages**
-* **Render**
-* **Cloudflare Pages**
+Yes, you can!
 
-Simply connect your Git repository to your chosen hosting provider and follow their deployment instructions.
+To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
----
-
-## 🌐 Custom Domains
-
-Most hosting platforms allow you to connect a **custom domain** easily.
-
-Check your host’s documentation for detailed setup instructions (for example, [Vercel custom domains](https://vercel.com/docs/projects/domains) or [Netlify custom domains](https://docs.netlify.com/domains-https/custom-domains/)).
-
----
-
-Would you like me to make it more **branded for your project** (e.g., add your app name, deployment link, and badges)? I can tailor it to your specific project style.
+Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
