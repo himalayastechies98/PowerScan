@@ -11,6 +11,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { toast } from 'sonner';
 import { Upload } from 'lucide-react';
 import { mockInspections } from '@/data/mockData';
+import { Sidebar } from '@/components/dashboard/Sidebar';
+import { TopBar } from '@/components/dashboard/TopBar';
+import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
+import { ProfileModal } from '@/components/ProfileModal';
 
 interface Inspection {
   id: string;
@@ -26,6 +30,8 @@ interface Inspection {
 export default function ClientInspections() {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [inspections, setInspections] = useState<Inspection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
@@ -67,115 +73,138 @@ export default function ClientInspections() {
   };
 
   return (
-    <div>
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>{t('myInspections')}</CardTitle>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Upload className="w-4 h-4 mr-2" />
-                {t('uploadNew')}
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>{t('uploadInspection')}</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleUpload} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="title">{t('inspectionTitle')}</Label>
-                  <Input
-                    id="title"
-                    value={newInspection.title}
-                    onChange={(e) => setNewInspection({ ...newInspection, title: e.target.value })}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="description">{t('inspectionDescription')}</Label>
-                  <Textarea
-                    id="description"
-                    value={newInspection.description}
-                    onChange={(e) => setNewInspection({ ...newInspection, description: e.target.value })}
-                    rows={4}
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="location">{t('location')}</Label>
-                    <Input
-                      id="location"
-                      value={newInspection.location}
-                      onChange={(e) => setNewInspection({ ...newInspection, location: e.target.value })}
-                    />
+    <div className="flex min-h-screen w-full">
+      <Sidebar
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        onOpenProfile={() => setIsProfileOpen(true)}
+      />
+
+      <main className="flex-1 lg:ml-60 transition-all duration-300">
+        <TopBar onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
+
+        <div className="p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto">
+          <DashboardHeader />
+
+          <div className="space-y-6">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle>{t('myInspections')}</CardTitle>
+                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button>
+                      <Upload className="w-4 h-4 mr-2" />
+                      {t('uploadNew')}
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                      <DialogTitle>{t('uploadInspection')}</DialogTitle>
+                    </DialogHeader>
+                    <form onSubmit={handleUpload} className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="title">{t('inspectionTitle')}</Label>
+                        <Input
+                          id="title"
+                          value={newInspection.title}
+                          onChange={(e) => setNewInspection({ ...newInspection, title: e.target.value })}
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="description">{t('inspectionDescription')}</Label>
+                        <Textarea
+                          id="description"
+                          value={newInspection.description}
+                          onChange={(e) => setNewInspection({ ...newInspection, description: e.target.value })}
+                          rows={4}
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="location">{t('location')}</Label>
+                          <Input
+                            id="location"
+                            value={newInspection.location}
+                            onChange={(e) => setNewInspection({ ...newInspection, location: e.target.value })}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="type">{t('inspectionType')}</Label>
+                          <Input
+                            id="type"
+                            value={newInspection.inspectionType}
+                            onChange={(e) => setNewInspection({ ...newInspection, inspectionType: e.target.value })}
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="date">{t('inspectionDate')}</Label>
+                        <Input
+                          id="date"
+                          type="date"
+                          value={newInspection.inspectionDate}
+                          onChange={(e) => setNewInspection({ ...newInspection, inspectionDate: e.target.value })}
+                        />
+                      </div>
+                      <Button type="submit" className="w-full" disabled={isUploading}>
+                        {isUploading ? t('loading') : t('uploadInspection')}
+                      </Button>
+                    </form>
+                  </DialogContent>
+                </Dialog>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <div className="text-center py-8">{t('loading')}</div>
+                ) : inspections.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No inspections yet
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="type">{t('inspectionType')}</Label>
-                    <Input
-                      id="type"
-                      value={newInspection.inspectionType}
-                      onChange={(e) => setNewInspection({ ...newInspection, inspectionType: e.target.value })}
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="date">{t('inspectionDate')}</Label>
-                  <Input
-                    id="date"
-                    type="date"
-                    value={newInspection.inspectionDate}
-                    onChange={(e) => setNewInspection({ ...newInspection, inspectionDate: e.target.value })}
-                  />
-                </div>
-                <Button type="submit" className="w-full" disabled={isUploading}>
-                  {isUploading ? t('loading') : t('uploadInspection')}
-                </Button>
-              </form>
-            </DialogContent>
-          </Dialog>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="text-center py-8">{t('loading')}</div>
-          ) : inspections.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No inspections yet
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t('inspectionTitle')}</TableHead>
-                  <TableHead>{t('location')}</TableHead>
-                  <TableHead>{t('inspectionType')}</TableHead>
-                  <TableHead>{t('status')}</TableHead>
-                  <TableHead>Date</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {inspections.map((inspection) => (
-                  <TableRow key={inspection.id}>
-                    <TableCell className="font-medium">{inspection.title}</TableCell>
-                    <TableCell>{inspection.location || '-'}</TableCell>
-                    <TableCell>{inspection.inspection_type || '-'}</TableCell>
-                    <TableCell>
-                      <span className="px-2 py-1 rounded-full text-xs bg-secondary text-secondary-foreground">
-                        {inspection.status}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      {inspection.inspection_date
-                        ? new Date(inspection.inspection_date).toLocaleDateString()
-                        : '-'}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t('inspectionTitle')}</TableHead>
+                        <TableHead>{t('location')}</TableHead>
+                        <TableHead>{t('inspectionType')}</TableHead>
+                        <TableHead>{t('status')}</TableHead>
+                        <TableHead>Date</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {inspections.map((inspection) => (
+                        <TableRow key={inspection.id}>
+                          <TableCell className="font-medium">{inspection.title}</TableCell>
+                          <TableCell>{inspection.location || '-'}</TableCell>
+                          <TableCell>{inspection.inspection_type || '-'}</TableCell>
+                          <TableCell>
+                            <span className="px-2 py-1 rounded-full text-xs bg-secondary text-secondary-foreground">
+                              {inspection.status}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            {inspection.inspection_date
+                              ? new Date(inspection.inspection_date).toLocaleDateString()
+                              : '-'}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          <footer className="mt-8 pt-6 border-t border-border flex flex-col sm:flex-row justify-between items-center gap-4 text-sm text-muted-foreground">
+            <div>{t('copyright')}</div>
+            <div>{t('version')}</div>
+          </footer>
+        </div>
+      </main>
+
+      <ProfileModal isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} />
     </div>
   );
 }

@@ -1,45 +1,56 @@
-import { useState, useRef } from "react";
+import { useState, useEffect } from "react";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Checkbox } from "@/components/ui/checkbox";
+import { useTranslation } from "react-i18next";
+import { MapContainer, TileLayer, GeoJSON, useMap, ZoomControl } from "react-leaflet";
+import { Search, Upload, Layers } from "lucide-react";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Plus, Upload } from "lucide-react";
-import { MapContainer, TileLayer, GeoJSON, useMap } from "react-leaflet";
-import type { Map as LeafletMap } from "leaflet";
-import * as toGeoJSON from "@tmcw/togeojson";
-import { toast } from "@/hooks/use-toast";
+import { Checkbox } from "@/components/ui/checkbox";
+import { toast } from "sonner";
 import "leaflet/dist/leaflet.css";
+import { Sidebar } from "@/components/dashboard/Sidebar";
+import { TopBar } from "@/components/dashboard/TopBar";
+import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
+import { ProfileModal } from "@/components/ProfileModal";
+import { useRef } from "react";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import * as toGeoJSON from "@tmcw/togeojson";
+import type { Map as LeafletMap } from "leaflet";
+import { supabase } from "@/lib/supabase";
+import { Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
-// Map reference component
-function MapController({ mapRef }: { mapRef: React.MutableRefObject<LeafletMap | null> }) {
+function MapController({
+  mapRef,
+}: {
+  mapRef: React.MutableRefObject<LeafletMap | null>;
+}) {
   const map = useMap();
   mapRef.current = map;
   return null;
 }
 
 interface Feeder {
-  id: string;
-  feeder: string;
-  ea: string;
-  region: string;
-  coordinates?: [number, number];
+  idUnico: string;
+  name: string;
+  kmlFilePath?: string;
+  geoJson?: any;
+  bounds?: [[number, number], [number, number]];
+  lastUpdate: string;
 }
 
-const dummyFeeders: Feeder[] = [
-  { id: "1", feeder: "001005", ea: "-", region: "-" },
-  { id: "2", feeder: "001019", ea: "-", region: "-" },
-  { id: "3", feeder: "001042", ea: "-", region: "-" },
-  { id: "4", feeder: "001044", ea: "-", region: "-" },
-  { id: "5", feeder: "045005", ea: "-", region: "-" },
-  { id: "6", feeder: "045006", ea: "-", region: "-" },
-  { id: "7", feeder: "045007", ea: "-", region: "-" },
-  { id: "8", feeder: "056015", ea: "-", region: "-" },
-  { id: "9", feeder: "069010", ea: "-", region: "-" },
-  { id: "10", feeder: "069012", ea: "-", region: "-" },
-];
+const initialFeeders: Feeder[] = [];
 
 const layerOptions = [
   { id: "condutores", label: "Condutores" },
@@ -55,17 +66,23 @@ const layerOptions = [
   { id: "poles", label: "Poles" },
 ];
 
-export default function Feeders() {
+function Feeders() {
+  const { t } = useTranslation();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [mapType, setMapType] = useState("streets");
-  const [selectedLayers, setSelectedLayers] = useState<string[]>(layerOptions.map(opt => opt.id));
-  const [kmlData, setKmlData] = useState<any>(null);
+  const [feeders, setFeeders] = useState<Feeder[]>([]);
   const [selectedFeeder, setSelectedFeeder] = useState<string | null>(null);
+  const [mapType, setMapType] = useState<"satellite" | "streets">("streets");
+  const [selectedLayers, setSelectedLayers] = useState<string[]>(["condutores"]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isLoading, setIsLoading] = useState(true);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const mapRef = useRef<LeafletMap | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const filteredFeeders = dummyFeeders.filter((feeder) =>
+  const filteredFeeders = feeders.filter((feeder) =>
     Object.values(feeder).some((value) =>
       String(value).toLowerCase().includes(searchTerm.toLowerCase())
     )
@@ -78,207 +95,481 @@ export default function Feeders() {
     currentPage * itemsPerPage
   );
 
-  const toggleLayer = (layerId: string) => {
-    setSelectedLayers(prev =>
-      prev.includes(layerId)
-        ? prev.filter(id => id !== layerId)
-        : [...prev, layerId]
+  const toggleLayer = (id: string) => {
+    setSelectedLayers((prev) =>
+      prev.includes(id) ? prev.filter((l) => l !== id) : [...prev, id]
     );
   };
 
-  const handleKmlUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  const fetchFeeders = async () => {
+    setIsLoading(true);
+    try {
+      let query = supabase
+        .from("feeders")
+        .select("*")
+        .order("created_at", { ascending: false });
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const kmlText = e.target?.result as string;
-        const parser = new DOMParser();
-        const kml = parser.parseFromString(kmlText, "text/xml");
-        const geoJson = toGeoJSON.kml(kml);
-        setKmlData(geoJson);
-        toast({
-          title: "KML file loaded",
-          description: "The KML file has been successfully loaded on the map.",
-        });
-      } catch (error) {
-        toast({
-          title: "Error",
-          description: "Failed to parse KML file.",
-          variant: "destructive",
-        });
+      if (searchTerm) {
+        query = query.or(`name.ilike.%${searchTerm}%`);
       }
-    };
-    reader.readAsText(file);
-  };
 
-  const handleFeederClick = (feeder: Feeder) => {
-    setSelectedFeeder(feeder.id);
-    if (feeder.coordinates && mapRef.current) {
-      mapRef.current.setView(feeder.coordinates, 15, {
-        animate: true,
-      });
+      const { data, error } = await query;
+
+      if (error) throw error;
+
+      const mappedFeeders: Feeder[] = (data || []).map((f) => ({
+        idUnico: f.id_unico,
+        name: f.name,
+        kmlFilePath: f.kml_file_path,
+        lastUpdate: new Date(f.updated_at).toLocaleString(),
+      }));
+
+      setFeeders(mappedFeeders);
+    } catch (error) {
+      console.error("Error fetching feeders:", error);
+      toast.error("Failed to load feeders");
+    } finally {
+      setIsLoading(false);
     }
   };
 
+  useEffect(() => {
+    fetchFeeders();
+  }, [searchTerm]);
+
+  const handleDelete = async () => {
+    if (!deleteId) return;
+
+    try {
+      // Get the feeder to find the file path
+      const feederToDelete = feeders.find((f) => f.idUnico === deleteId);
+      if (!feederToDelete) return;
+
+      // Delete from database
+      const { error: dbError } = await supabase
+        .from("feeders")
+        .delete()
+        .eq("id_unico", deleteId);
+
+      if (dbError) throw dbError;
+
+      // Delete file from storage if it exists
+      if (feederToDelete.kmlFilePath) {
+        const { error: storageError } = await supabase.storage
+          .from("feeder-kml-files")
+          .remove([feederToDelete.kmlFilePath]);
+
+        if (storageError) {
+          console.error("Error deleting file:", storageError);
+          // Continue anyway as the record is deleted
+        }
+      }
+
+      toast.success("Feeder deleted successfully");
+      fetchFeeders();
+    } catch (error) {
+      console.error("Error deleting feeder:", error);
+      toast.error("Failed to delete feeder");
+    } finally {
+      setIsDeleteDialogOpen(false);
+      setDeleteId(null);
+    }
+  };
+
+  const getAllCoordinates = (geometry: any): number[][] => {
+    const coords: number[][] = [];
+
+    const extract = (geom: any) => {
+      if (geom.type === "Point") return;
+      if (geom.type === "LineString") coords.push(...geom.coordinates);
+      else if (geom.type === "Polygon")
+        geom.coordinates.forEach((ring: number[][]) => coords.push(...ring));
+      else if (
+        geom.type === "MultiLineString" ||
+        geom.type === "MultiPolygon"
+      ) {
+        geom.coordinates.forEach((part: any) => {
+          part.forEach((sub: any) => coords.push(...sub));
+        });
+      } else if (geom.type === "GeometryCollection")
+        geom.geometries.forEach((g: any) => extract(g));
+    };
+
+    extract(geometry);
+    return coords;
+  };
+
+  const handleKmlUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Auto-name from filename (remove extension)
+    const fileName = file.name.replace(/\.kml$/i, "");
+
+    try {
+      // 1. Upload file to Supabase Storage
+      const fileExt = file.name.split(".").pop();
+      const filePath = `${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("feeder-kml-files")
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      // 2. Insert record into Database
+      const { error: insertError } = await supabase.from("feeders").insert({
+        id_unico: crypto.randomUUID(),
+        name: fileName,
+        kml_file_path: filePath,
+      });
+
+      if (insertError) {
+        // Cleanup file if DB insert fails
+        await supabase.storage.from("feeder-kml-files").remove([filePath]);
+        throw insertError;
+      }
+
+      toast.success("KML file uploaded and feeder created successfully!");
+      fetchFeeders(); // Refresh list
+    } catch (error) {
+      console.error("Error uploading KML:", error);
+      toast.error("Failed to upload KML file");
+    } finally {
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
+  const handleFeederClick = async (feeder: Feeder) => {
+    setSelectedFeeder(feeder.idUnico);
+
+    // If we already have the GeoJSON, just zoom to it
+    if (feeder.geoJson && feeder.bounds && mapRef.current) {
+      mapRef.current.fitBounds(feeder.bounds, {
+        paddingTopLeft: [80, 80],
+        paddingBottomRight: [80, 80],
+        animate: true,
+      });
+      return;
+    }
+
+    // Otherwise, load it from storage
+    if (feeder.kmlFilePath) {
+      try {
+        const { data, error } = await supabase.storage
+          .from("feeder-kml-files")
+          .download(feeder.kmlFilePath);
+
+        if (error) throw error;
+
+        const text = await data.text();
+        const doc = new DOMParser().parseFromString(text, "text/xml");
+        const geoJson = toGeoJSON.kml(doc);
+
+        if (geoJson?.features?.length > 0) {
+          const lineFeatures = geoJson.features.filter(
+            (f: any) =>
+              f.geometry?.type === "LineString" ||
+              f.geometry?.type === "MultiLineString" ||
+              f.geometry?.type === "Polygon" ||
+              f.geometry?.type === "MultiPolygon"
+          );
+
+          const filteredGeoJson = {
+            ...geoJson,
+            features: lineFeatures,
+          };
+
+          let bounds;
+          const all: number[][] = [];
+
+          lineFeatures.forEach((f: any) => {
+            if (f.geometry) all.push(...getAllCoordinates(f.geometry));
+          });
+
+          if (all.length > 0) {
+            const lats = all.map((c) => c[1]);
+            const lngs = all.map((c) => c[0]);
+            bounds = [
+              [Math.min(...lats), Math.min(...lngs)],
+              [Math.max(...lats), Math.max(...lngs)],
+            ] as [[number, number], [number, number]];
+          }
+
+          // Update the feeder in state with the new data
+          setFeeders((prev) =>
+            prev.map((f) =>
+              f.idUnico === feeder.idUnico
+                ? { ...f, geoJson: filteredGeoJson, bounds }
+                : f
+            )
+          );
+
+          // Zoom to bounds after state update
+          if (bounds && mapRef.current) {
+            setTimeout(() => {
+              mapRef.current?.fitBounds(bounds!, {
+                paddingTopLeft: [80, 80],
+                paddingBottomRight: [80, 80],
+                animate: true,
+              });
+            }, 100);
+          }
+        }
+      } catch (error) {
+        console.error("Error loading KML:", error);
+        toast.error("Failed to load KML data");
+      }
+    }
+  };
+
+  const selectedFeederData = feeders.find((f) => f.idUnico === selectedFeeder);
+
   return (
-    <div className="space-y-6 h-screen flex flex-col">
-      <div className="flex items-center justify-between flex-shrink-0">
-        <h1 className="text-3xl font-bold">Feeders</h1>
-        <div className="flex gap-2">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".kml"
-            onChange={handleKmlUpload}
-            className="hidden"
-          />
-          <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
-            <Upload className="w-4 h-4 mr-2" />
-            Upload KML
-          </Button>
-          <Button>
-            <Plus className="w-4 h-4 mr-2" />
-            Add
-          </Button>
-        </div>
-      </div>
+    <div className="flex min-h-screen w-full">
+      <Sidebar
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        onOpenProfile={() => setIsProfileOpen(true)}
+      />
 
-      <div className="grid grid-cols-12 gap-6 flex-1 overflow-hidden">
-        {/* Left Sidebar - Feeder List */}
-        <div className="col-span-3 space-y-4 flex flex-col overflow-hidden">
-          <div>
-            <Label className="text-sm mb-2 block">Search:</Label>
-            <Input
-              placeholder="Search feeders..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
+      <main className="flex-1 lg:ml-60 transition-all duration-300">
+        <TopBar onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
 
-          <Card className="overflow-hidden flex-1 flex flex-col">
-            <div className="overflow-auto flex-1">
-              <Table>
-                <TableHeader className="sticky top-0 bg-background z-10">
-                  <TableRow>
-                    <TableHead className="w-12"></TableHead>
-                    <TableHead>FEEDER</TableHead>
-                    <TableHead>EA</TableHead>
-                    <TableHead>REGION</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {paginatedFeeders.map((feeder) => (
-                    <TableRow 
-                      key={feeder.id} 
-                      className={`cursor-pointer hover:bg-muted/50 ${selectedFeeder === feeder.id ? 'bg-primary/10' : ''}`}
-                      onClick={() => handleFeederClick(feeder)}
-                    >
-                      <TableCell>
-                        <Checkbox />
-                      </TableCell>
-                      <TableCell className="font-medium">{feeder.feeder}</TableCell>
-                      <TableCell>{feeder.ea}</TableCell>
-                      <TableCell>{feeder.region}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </Card>
+        <div className="p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto">
+          <DashboardHeader />
 
-          <div className="flex justify-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-            >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
-            >
-              Next
-            </Button>
-          </div>
-        </div>
+          <div className="space-y-6 flex flex-col" style={{ height: "calc(100vh - 200px)" }}>
+            <div className="flex justify-between items-center">
+              <h1 className="text-3xl font-bold">{t("feeders")}</h1>
 
-        {/* Map Area */}
-        <div className="col-span-9 relative h-full">
-          <Card className="h-full overflow-hidden">
-            <MapContainer
-              {...{
-                center: [40.7128, -74.0060] as [number, number],
-                zoom: 13,
-                scrollWheelZoom: true,
-                style: { height: "100%", width: "100%" }
-              } as any}
-            >
-              <MapController mapRef={mapRef} />
-              <TileLayer
-                url={
-                  mapType === "satellite"
-                    ? "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                    : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                }
-              />
-              {kmlData && (
-                <GeoJSON
-                  data={kmlData}
-                  pathOptions={{
-                    color: "#2563eb",
-                    weight: 3,
-                    opacity: 0.8,
-                  }}
+              <div className="flex gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".kml"
+                  onChange={handleKmlUpload}
+                  className="hidden"
                 />
-              )}
-            </MapContainer>
-          </Card>
-
-          {/* Map Controls Overlay - Top Right */}
-          <div className="absolute top-4 right-4 bg-white dark:bg-card rounded-lg shadow-lg p-4 space-y-4 max-w-xs z-[1000]">
-            <div>
-              <Label className="text-sm font-semibold mb-2 block">Map Type</Label>
-              <RadioGroup value={mapType} onValueChange={setMapType}>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="satellite" id="satellite" />
-                  <Label htmlFor="satellite" className="font-normal cursor-pointer">Satellite</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="streets" id="streets" />
-                  <Label htmlFor="streets" className="font-normal cursor-pointer">Streets</Label>
-                </div>
-              </RadioGroup>
+                <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+                  <Upload className="w-4 h-4 mr-2" /> Upload KML
+                </Button>
+              </div>
             </div>
 
-            <div className="border-t pt-3">
-              <Label className="text-sm font-semibold mb-2 block">Layers</Label>
-              <div className="space-y-2 max-h-64 overflow-y-auto">
-                {layerOptions.map((option) => (
-                  <div key={option.id} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={option.id}
-                      checked={selectedLayers.includes(option.id)}
-                      onCheckedChange={() => toggleLayer(option.id)}
+            <div className="grid grid-cols-12 gap-6 flex-1 overflow-hidden">
+              {/* LEFT */}
+              <div className="col-span-3 space-y-4 flex flex-col overflow-hidden">
+                <div>
+                  <Label className="text-sm mb-2 block">Search:</Label>
+                  <Input
+                    placeholder="Search feeders..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+
+                <Card className="flex-1 overflow-auto">
+                  <Table>
+                    <TableHeader className="sticky top-0 bg-card z-10">
+                      <TableRow>
+                        <TableHead />
+                        <TableHead>FEEDER</TableHead>
+                        <TableHead className="w-[50px]"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {isLoading ? (
+                        <TableRow>
+                          <TableCell colSpan={3} className="text-center py-4">
+                            Loading...
+                          </TableCell>
+                        </TableRow>
+                      ) : paginatedFeeders.length === 0 ? (
+                        <TableRow>
+                          <TableCell
+                            colSpan={3}
+                            className="text-center py-4 text-muted-foreground"
+                          >
+                            No feeders found
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        paginatedFeeders.map((feeder) => (
+                          <TableRow
+                            key={feeder.idUnico}
+                            onClick={() => handleFeederClick(feeder)}
+                            className={`cursor-pointer hover:bg-muted/50 ${selectedFeeder === feeder.idUnico ? "bg-accent/20" : ""
+                              }`}
+                          >
+                            <TableCell>
+                              <Checkbox
+                                checked={selectedFeeder === feeder.idUnico}
+                                onCheckedChange={() => handleFeederClick(feeder)}
+                              />
+                            </TableCell>
+                            <TableCell>{feeder.name}</TableCell>
+                            <TableCell>
+                              {selectedFeeder === feeder.idUnico && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-destructive hover:text-destructive/90"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setDeleteId(feeder.idUnico);
+                                    setIsDeleteDialogOpen(true);
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </Card>
+
+                <div className="flex justify-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={currentPage === totalPages}
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+
+              {/* MAP */}
+              <div className="col-span-9 relative h-full">
+                <Card className="h-full overflow-hidden">
+                  <MapContainer
+                    {...({
+                      center: [-23.5505, -46.6333],
+                      zoom: 14,
+                      scrollWheelZoom: true,
+                      zoomControl: false,
+                      style: { height: "100%", width: "100%" },
+                    } as any)}
+                  >
+                    <MapController mapRef={mapRef} />
+
+                    <ZoomControl position="topleft" />
+
+                    <TileLayer
+                      url={
+                        mapType === "satellite"
+                          ? "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                          : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                      }
+                      {...({ attribution: "© CARTO | © OpenStreetMap" } as any)}
                     />
-                    <Label
-                      htmlFor={option.id}
-                      className="text-sm font-normal cursor-pointer"
-                    >
-                      {option.label}
-                    </Label>
+
+                    {selectedFeederData?.geoJson && selectedLayers.includes("condutores") && (
+                      <GeoJSON
+                        key={selectedFeeder}
+                        data={selectedFeederData.geoJson}
+                        {...({
+                          pathOptions: {
+                            color: "#0d6efd",
+                            weight: 3,
+                            opacity: 0.9,
+                          },
+                          pointToLayer: () => null,
+                        } as any)}
+                      />
+                    )}
+                  </MapContainer>
+                </Card>
+
+                {/* RIGHT PANEL */}
+                <div className="absolute top-4 right-4 bg-card/95 rounded-md shadow-md p-3 space-y-3 text-sm w-48 z-[1000] border">
+                  <div>
+                    <Label className="text-xs font-semibold">Map Type</Label>
+                    <RadioGroup value={mapType} onValueChange={(val: any) => setMapType(val)}>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="satellite" id="satellite" />
+                        <Label htmlFor="satellite" className="cursor-pointer">
+                          Satellite
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="streets" id="streets" />
+                        <Label htmlFor="streets" className="cursor-pointer">
+                          Streets
+                        </Label>
+                      </div>
+                    </RadioGroup>
                   </div>
-                ))}
+
+                  <div>
+                    <Label className="text-xs font-semibold">Layers</Label>
+                    <div className="max-h-52 overflow-y-auto space-y-1 mt-1">
+                      {layerOptions.map((l) => (
+                        <div key={l.id} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={l.id}
+                            checked={selectedLayers.includes(l.id)}
+                            onCheckedChange={() => toggleLayer(l.id)}
+                          />
+                          <Label htmlFor={l.id} className="cursor-pointer text-sm">
+                            {l.label}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
+
+          <footer className="mt-8 pt-6 border-t border-border flex flex-col sm:flex-row justify-between items-center gap-4 text-sm text-muted-foreground">
+            <div>{t('copyright')}</div>
+            <div>{t('version')}</div>
+          </footer>
         </div>
-      </div>
+      </main>
+
+      <ProfileModal isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} />
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the
+              feeder and its associated KML file.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
+
+export default Feeders;

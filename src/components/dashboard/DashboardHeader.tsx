@@ -1,40 +1,56 @@
 import { useTranslation } from 'react-i18next';
 import { ChevronRight } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 interface DashboardHeaderProps {
-  currentView: string;
-  onNavigate?: (view: string) => void;
+  breadcrumbs?: Array<{ label: string; path?: string }>;
+  title?: string;
+  subtitle?: string;
 }
 
-export function DashboardHeader({ currentView, onNavigate }: DashboardHeaderProps) {
+export function DashboardHeader({ breadcrumbs: customBreadcrumbs, title: customTitle, subtitle: customSubtitle }: DashboardHeaderProps = {}) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  const getBreadcrumbs = () => {
-    const parts = currentView.split('/');
-    const breadcrumbs = [{ label: t('home'), path: 'dashboard' }];
+  const getDefaultBreadcrumbs = () => {
+    const pathname = location.pathname;
+    const breadcrumbs = [{ label: t('home'), path: '/' }];
 
-    if (parts[0] === 'inspections' && parts.length > 1) {
-      breadcrumbs.push({ label: t('inspections'), path: 'inspections' });
-      if (parts.length === 2) {
-        breadcrumbs.push({ label: t(parts[1]), path: currentView });
-      } else if (parts.length > 2) {
-        breadcrumbs.push({ label: t(parts[1]), path: `inspections/${parts[1]}` });
-        for (let i = 2; i < parts.length; i++) {
-          const path = parts.slice(0, i + 1).join('/');
-          breadcrumbs.push({ label: t(parts[i]), path });
-        }
+    if (pathname === '/') return breadcrumbs;
+
+    if (pathname.startsWith('/distribution')) {
+      breadcrumbs.push({ label: t('inspections'), path: '/distribution' });
+      breadcrumbs.push({ label: t('distribution'), path: '/distribution' });
+      if (pathname === '/upload') {
+        breadcrumbs.push({ label: t('upload'), path: '/upload' });
       }
-    } else if (parts[0] === 'system' && parts.length > 1) {
-      breadcrumbs.push({ label: t('system'), path: 'system' });
-      breadcrumbs.push({ label: t(parts[1]), path: currentView });
-    } else if (currentView !== 'dashboard') {
-      breadcrumbs.push({ label: t(currentView), path: currentView });
+    } else if (pathname === '/upload') {
+      breadcrumbs.push({ label: t('inspections'), path: '/distribution' });
+      breadcrumbs.push({ label: t('distribution'), path: '/distribution' });
+      breadcrumbs.push({ label: t('upload'), path: '/upload' });
+    } else if (pathname.startsWith('/system/')) {
+      breadcrumbs.push({ label: t('system'), path: '/system/elements' });
+      const page = pathname.split('/')[2];
+      breadcrumbs.push({ label: t(page), path: pathname });
+    } else if (pathname === '/feeders') {
+      breadcrumbs.push({ label: t('system'), path: '/system/elements' });
+      breadcrumbs.push({ label: t('feeders'), path: '/feeders' });
+    } else if (pathname === '/clients') {
+      breadcrumbs.push({ label: t('clients'), path: '/clients' });
+    } else if (pathname === '/inspections') {
+      breadcrumbs.push({ label: t('inspections'), path: '/inspections' });
+    } else if (pathname === '/profile') {
+      breadcrumbs.push({ label: t('profile'), path: '/profile' });
+    } else if (pathname.includes('/measure-details') || pathname.includes('/measure-image')) {
+      breadcrumbs.push({ label: t('inspections'), path: '/distribution' });
+      breadcrumbs.push({ label: t('distribution'), path: '/distribution' });
     }
 
     return breadcrumbs;
   };
 
-  const breadcrumbs = getBreadcrumbs();
+  const breadcrumbs = customBreadcrumbs || getDefaultBreadcrumbs();
 
   return (
     <div className="mb-6">
@@ -46,7 +62,7 @@ export function DashboardHeader({ currentView, onNavigate }: DashboardHeaderProp
               <span className="text-foreground font-medium">{crumb.label}</span>
             ) : (
               <button
-                onClick={() => onNavigate?.(crumb.path)}
+                onClick={() => navigate(crumb.path)}
                 className="hover:text-foreground transition-colors cursor-pointer"
               >
                 {crumb.label}
@@ -55,9 +71,9 @@ export function DashboardHeader({ currentView, onNavigate }: DashboardHeaderProp
           </div>
         ))}
       </div>
-      <h1 className="text-3xl font-bold mb-2">{t('dashboardTitle')}</h1>
+      <h1 className="text-3xl font-bold mb-2">{customTitle || t('dashboardTitle')}</h1>
       <p className="text-muted-foreground">
-        {t('dashboardSubtitle')}
+        {customSubtitle || t('dashboardSubtitle')}
       </p>
     </div>
   );

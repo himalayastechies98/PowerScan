@@ -1,73 +1,63 @@
-# Welcome to your Lovable project
+# PowerScan - React Vision Maker
 
-## Project info
+A modern web application for managing inspections, clients, and system configurations.
 
-**URL**: https://lovable.dev/projects/d9704fde-575e-4b8e-b799-eb355a05bbbb
+## 🚀 Getting Started
 
-## How can I edit this code?
+### Prerequisites
 
-There are several ways of editing your application.
+- Node.js & npm installed
+- A Supabase project
 
-**Use Lovable**
+### Installation
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/d9704fde-575e-4b8e-b799-eb355a05bbbb) and start prompting.
+1.  **Clone the repository:**
+    ```bash
+    git clone <YOUR_GIT_URL>
+    cd react-vision-maker
+    ```
 
-Changes made via Lovable will be committed automatically to this repo.
+2.  **Install dependencies:**
+    ```bash
+    npm install
+    ```
 
-**Use your preferred IDE**
+3.  **Configure Environment Variables:**
+    Create a `.env.local` file in the root directory and add your Supabase credentials:
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+    ```env
+    VITE_SUPABASE_URL=https://your-project-id.supabase.co
+    VITE_SUPABASE_ANON_KEY=your-anon-key
+    DATABASE_URL=postgresql://postgres.your-project:password@aws-0-region.pooler.supabase.com:6543/postgres
+    ```
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+    *   **VITE_SUPABASE_URL**: Found in Supabase Dashboard -> Project Settings -> API.
+    *   **VITE_SUPABASE_ANON_KEY**: Found in Supabase Dashboard -> Project Settings -> API.
+The project uses Supabase Auth for user management.
 
-Follow these steps:
+-   **Admin User**: You can create an initial admin user via the Supabase Dashboard or by using the `register_admin.js` script (if available).
+-   **Client Users**: Admins can create new client users directly from the "Clients" page in the application.
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+## 🛠️ Tech Stack
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+-   **Frontend**: React, TypeScript, Vite
+-   **Styling**: Tailwind CSS, Shadcn UI
+-   **State Management**: React Context (Auth), React Query
+-   **Backend/Database**: Supabase (PostgreSQL, Auth)
+-   **Icons**: Lucide React
 
-# Step 3: Install the necessary dependencies.
-npm i
+## 📂 Project Structure
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+-   `src/pages`: Application pages (Dashboard, Clients, Distribution, etc.)
+-   `src/components`: Reusable UI components
+-   `src/contexts`: Global state contexts (AuthContext)
+-   `src/lib`: Utility libraries (Supabase client)
+-   `scripts`: Database setup and maintenance scripts
 
-**Edit a file directly in GitHub**
+## 📜 Database Schema
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+The database schema is managed via `scripts/setup-db.js`. It includes:
 
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/d9704fde-575e-4b8e-b799-eb355a05bbbb) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+-   `profiles` table: Extends Supabase Auth with user roles (`admin` or `client`) and full names.
+-   **RLS Policies**: Ensures users can only access their own data (unless they are admins).
+-   **Triggers**: Automatically creates a profile entry when a new user signs up.
