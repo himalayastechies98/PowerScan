@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Upload } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
@@ -29,6 +29,7 @@ interface UploadFile {
 
 export default function UploadMeasures() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { inspectionId } = useParams<{ inspectionId?: string }>();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -301,6 +302,12 @@ export default function UploadMeasures() {
         // Show toast notification
         if (failedRows.length === 0) {
           toast.success(`Successfully uploaded ${insertedCount} measures!`);
+          // Auto redirect to measures page
+          if (inspectionId) {
+            setTimeout(() => {
+              navigate(`/distribution/measures/${inspectionId}`);
+            }, 1000);
+          }
         } else {
           toast.warning(`Uploaded ${insertedCount} measures. ${failedRows.length} failed.`);
         }
@@ -317,9 +324,9 @@ export default function UploadMeasures() {
           }
         };
 
-      } catch (parseError) {
+      } catch (parseError: any) {
         console.error("Error parsing Excel file:", parseError);
-        return { error: "Failed to parse Excel file. Please ensure it's a valid Excel file." };
+        return { error: parseError.message || "Failed to parse Excel file. Please ensure it's a valid Excel file." };
       }
 
       return { error: null };

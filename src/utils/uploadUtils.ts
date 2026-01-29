@@ -105,6 +105,11 @@ export const parseExcelFromZip = async (
 
     const excelArrayBuffer = await excelZipEntry.async("arraybuffer");
     const workbook = XLSX.read(excelArrayBuffer, { type: "array" });
+
+    if (workbook.SheetNames.length > 1) {
+        throw new Error(`Maximum 1 Excel sheet is allowed. Found ${workbook.SheetNames.length} sheets.`);
+    }
+
     const firstSheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[firstSheetName];
     const jsonData = XLSX.utils.sheet_to_json(worksheet);
