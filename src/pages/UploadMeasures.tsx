@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Upload } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useParams } from "react-router-dom";
@@ -263,6 +262,27 @@ export default function UploadMeasures() {
           });
         }
 
+        // Update last_measure_date in inspections table if any rows were inserted
+        if (insertedCount > 0 && inspectionId) {
+          console.log(`📅 Updating last_measure_date for inspection ${inspectionId}...`);
+          try {
+            const { error: dateUpdateError } = await supabase
+              .from('inspections')
+              .update({
+                last_measure_date: new Date().toISOString().split('T')[0]
+              })
+              .eq('id_unico', inspectionId);
+
+            if (dateUpdateError) {
+              console.error('❌ Failed to update last_measure_date:', dateUpdateError.message);
+            } else {
+              console.log('✅ last_measure_date updated successfully');
+            }
+          } catch (dateErr) {
+            console.error('❌ Error updating last_measure_date:', dateErr);
+          }
+        }
+
         // Reset uploading state
         setIsUploading(false);
         setCurrentProcessing('');
@@ -419,36 +439,15 @@ export default function UploadMeasures() {
               </Card>
             )}
 
-            <Tabs defaultValue="vehicle" className="w-full">
-              <TabsList className="w-full justify-start">
-                <TabsTrigger value="vehicle">Vehicle Thermographic Measures / Traces</TabsTrigger>
-                <TabsTrigger value="drone">Drone Thermographic Measures</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="vehicle" className="space-y-4">
-                <UploadDropZone
-                  isDragging={isDragging}
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDrop}
-                  onFileSelect={handleFileInput}
-                  inputId="vehicle-file-input"
-                  title="You are uploading thermographic measures / traces"
-                />
-              </TabsContent>
-
-              <TabsContent value="drone" className="space-y-4">
-                <UploadDropZone
-                  isDragging={isDragging}
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDrop}
-                  onFileSelect={handleFileInput}
-                  inputId="drone-file-input"
-                  title="You are uploading drone thermographic measures"
-                />
-              </TabsContent>
-            </Tabs>
+            <UploadDropZone
+              isDragging={isDragging}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              onFileSelect={handleFileInput}
+              inputId="vehicle-file-input"
+              title="You are uploading thermographic measures / traces"
+            />
 
             {/* Upload Progress */}
             <UploadProgressBar

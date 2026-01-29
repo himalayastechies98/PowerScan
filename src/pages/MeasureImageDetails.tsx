@@ -61,7 +61,7 @@ export default function MeasureImageDetails() {
                 <TopBar onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
 
                 <main className="flex-1 overflow-auto">
-                    <div className="p-4 space-y-3">
+                    <div className="p-3 space-y-3">
                         {/* Top Action Bar */}
                         <TopActionBar inspectionId={inspectionId} />
 

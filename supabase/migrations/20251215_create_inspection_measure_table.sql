@@ -52,6 +52,9 @@ CREATE TABLE IF NOT EXISTS inspection_measure (
     num_imagens INTEGER,
     images JSONB,  -- Array of objects: [{ name: "Imagem1", value: "filename.jpg" }]
     
+    -- User observations
+    observations TEXT,
+    
     -- Indexes for common queries
     CONSTRAINT unique_inspection_registro UNIQUE (inspection_id, registro_num)
 );

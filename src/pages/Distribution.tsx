@@ -95,7 +95,7 @@ export default function Distribution() {
         vehicle: i.cars ? `${i.cars.name} ${i.cars.model}` : '-',
         carId: i.car_id,
         measures: { red: i.measures_red || 0, yellow: i.measures_yellow || 0 },
-        type: i.inspection_type || '-',
+        type: 'Thermo - T',
         lastMeasure: i.last_measure_date || '-',
       }));
 
@@ -223,6 +223,20 @@ export default function Distribution() {
     }
   };
 
+  const handleStatusChange = async (id: string, newStatus: string) => {
+    const { error } = await supabase
+      .from('inspections')
+      .update({ status: newStatus })
+      .eq('id_unico', id);
+
+    if (error) {
+      throw error;
+    }
+
+    // Refresh the data
+    fetchInspections();
+  };
+
   return (
     <div className="flex min-h-screen w-full">
       <Sidebar
@@ -259,6 +273,7 @@ export default function Distribution() {
               setSearchTerm={setSearchTerm}
               onDeleteInspection={handleDeleteInspection}
               onEditInspection={handleEditInspection}
+              onStatusChange={handleStatusChange}
               isLoading={isLoading}
             />
           </div>

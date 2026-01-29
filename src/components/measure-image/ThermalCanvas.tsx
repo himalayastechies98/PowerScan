@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { getColorForValue, PaletteName } from '@/utils/palettes';
+import { ZoomIn, ZoomOut, RotateCcw, Crosshair } from 'lucide-react';
 
 export interface ThermalData {
     width: number;
@@ -33,13 +34,10 @@ export function ThermalCanvas({
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
 
-    // Zoom and pan state
     const [scale, setScale] = useState(1);
     const [offset, setOffset] = useState({ x: 0, y: 0 });
-    const [isPanning, setIsPanning] = useState(false);
-    const [lastPanPos, setLastPanPos] = useState({ x: 0, y: 0 });
+    const [isHovered, setIsHovered] = useState(false);
 
-    // Render thermal image to canvas
     const renderThermal = useCallback(() => {
         if (!thermalData || !canvasRef.current) return;
 
@@ -48,19 +46,13 @@ export function ThermalCanvas({
         if (!ctx) return;
 
         const { width, height, temperatures } = thermalData;
-
-        // Set canvas size
         canvas.width = width;
         canvas.height = height;
 
-        // Create image data
         const imageData = ctx.createImageData(width, height);
         const data = imageData.data;
-
-        // Temperature range for normalization
         const tempRange = maxRange - minRange;
 
-        // Convert temperatures to colors
         for (let i = 0; i < temperatures.length; i++) {
             const temp = temperatures[i];
             const normalized = tempRange > 0
@@ -73,39 +65,33 @@ export function ThermalCanvas({
             data[pixelIndex] = r;
             data[pixelIndex + 1] = g;
             data[pixelIndex + 2] = b;
-            data[pixelIndex + 3] = 255; // Alpha
+            data[pixelIndex + 3] = 255;
         }
 
         ctx.putImageData(imageData, 0, 0);
     }, [thermalData, palette, minRange, maxRange]);
 
-    // Render when data or settings change
     useEffect(() => {
         renderThermal();
     }, [renderThermal]);
 
-    // Get temperature at mouse position
     const getTemperatureAtPosition = useCallback((clientX: number, clientY: number): TempHoverInfo | null => {
         if (!thermalData || !canvasRef.current || !containerRef.current) return null;
 
         const container = containerRef.current;
         const rect = container.getBoundingClientRect();
 
-        // Get position relative to container
         const containerX = clientX - rect.left;
         const containerY = clientY - rect.top;
 
-        // Account for zoom and pan
         const imageX = (containerX - offset.x) / scale;
         const imageY = (containerY - offset.y) / scale;
 
-        // Check bounds
         const { width, height, temperatures } = thermalData;
         if (imageX < 0 || imageX >= width || imageY < 0 || imageY >= height) {
             return null;
         }
 
-        // Get temperature value
         const pixelX = Math.floor(imageX);
         const pixelY = Math.floor(imageY);
         const index = pixelY * width + pixelX;
@@ -117,77 +103,37 @@ export function ThermalCanvas({
         };
     }, [thermalData, scale, offset]);
 
-    // Mouse event handlers
     const handleMouseMove = useCallback((e: React.MouseEvent) => {
-        if (isPanning) {
-            const dx = e.clientX - lastPanPos.x;
-            const dy = e.clientY - lastPanPos.y;
-            setOffset(prev => ({ x: prev.x + dx, y: prev.y + dy }));
-            setLastPanPos({ x: e.clientX, y: e.clientY });
-        }
-
         const tempInfo = getTemperatureAtPosition(e.clientX, e.clientY);
         onHoverTemp?.(tempInfo);
-    }, [isPanning, lastPanPos, getTemperatureAtPosition, onHoverTemp]);
-
-    const handleMouseDown = useCallback((e: React.MouseEvent) => {
-        if (e.button === 0) { // Left click
-            setIsPanning(true);
-            setLastPanPos({ x: e.clientX, y: e.clientY });
-        }
-    }, []);
-
-    const handleMouseUp = useCallback(() => {
-        setIsPanning(false);
-    }, []);
+    }, [getTemperatureAtPosition, onHoverTemp]);
 
     const handleMouseLeave = useCallback(() => {
-        setIsPanning(false);
+        setIsHovered(false);
         onHoverTemp?.(null);
     }, [onHoverTemp]);
 
-    // Zoom with mouse wheel
-    const handleWheel = useCallback((e: React.WheelEvent) => {
-        // Prevent default only if we are inside the component (which we are)
-        // But React synthetic events don't support preventDefault in the same way for passive listeners
-        // Usually wheel events on container need to be handled carefully
-        // For now we'll just handle the zoom logic
+    const handleMouseEnter = useCallback(() => {
+        setIsHovered(true);
+    }, []);
 
-        const container = containerRef.current;
-        if (!container) return;
-
-        const rect = container.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
-        const mouseY = e.clientY - rect.top;
-
-        // Calculate zoom
-        const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
-        const newScale = Math.max(0.1, Math.min(10, scale * zoomFactor));
-
-        // Adjust offset to zoom towards mouse position
-        const scaleChange = newScale / scale;
-        const newOffsetX = mouseX - (mouseX - offset.x) * scaleChange;
-        const newOffsetY = mouseY - (mouseY - offset.y) * scaleChange;
-
-        setScale(newScale);
-        setOffset({ x: newOffsetX, y: newOffsetY });
-    }, [scale, offset]);
-
-    // Fit to container on load
-    useEffect(() => {
+    // Fit image to container - fixed 52% initial scale, centered
+    const centerImage = useCallback(() => {
         if (thermalData && containerRef.current) {
             const container = containerRef.current;
             const containerWidth = container.clientWidth;
             const containerHeight = container.clientHeight;
 
-            // Only fit if container has dimensions
             if (containerWidth > 0 && containerHeight > 0) {
-                const scaleX = containerWidth / thermalData.width;
-                const scaleY = containerHeight / thermalData.height;
-                const fitScale = Math.min(scaleX, scaleY, 1);
+                // Fixed 52% initial scale
+                const fitScale = 0.52;
 
-                const centerX = (containerWidth - thermalData.width * fitScale) / 2;
-                const centerY = (containerHeight - thermalData.height * fitScale) / 2;
+                const scaledWidth = thermalData.width * fitScale;
+                const scaledHeight = thermalData.height * fitScale;
+
+                // Center both horizontally and vertically
+                const centerX = (containerWidth - scaledWidth) / 2;
+                const centerY = (containerHeight - scaledHeight) / 2;
 
                 setScale(fitScale);
                 setOffset({ x: centerX, y: centerY });
@@ -195,19 +141,56 @@ export function ThermalCanvas({
         }
     }, [thermalData]);
 
-    if (!thermalData) {
-        return null; // Or a placeholder if preferred, but usually parent handles placeholder
-    }
+    useEffect(() => {
+        centerImage();
+    }, [centerImage]);
+
+    // Button-only zoom with center-based scaling
+    const handleZoomIn = useCallback(() => {
+        if (!containerRef.current || !thermalData) return;
+
+        const container = containerRef.current;
+        const containerWidth = container.clientWidth;
+        const containerHeight = container.clientHeight;
+        const centerX = containerWidth / 2;
+        const centerY = containerHeight / 2;
+
+        const newScale = Math.min(scale * 1.25, 5);
+        const scaleChange = newScale / scale;
+        const newOffsetX = centerX - (centerX - offset.x) * scaleChange;
+        const newOffsetY = centerY - (centerY - offset.y) * scaleChange;
+
+        setScale(newScale);
+        setOffset({ x: newOffsetX, y: newOffsetY });
+    }, [scale, offset, thermalData]);
+
+    const handleZoomOut = useCallback(() => {
+        if (!containerRef.current || !thermalData) return;
+
+        const container = containerRef.current;
+        const containerWidth = container.clientWidth;
+        const containerHeight = container.clientHeight;
+        const centerX = containerWidth / 2;
+        const centerY = containerHeight / 2;
+
+        const newScale = Math.max(scale * 0.8, 0.25);
+        const scaleChange = newScale / scale;
+        const newOffsetX = centerX - (centerX - offset.x) * scaleChange;
+        const newOffsetY = centerY - (centerY - offset.y) * scaleChange;
+
+        setScale(newScale);
+        setOffset({ x: newOffsetX, y: newOffsetY });
+    }, [scale, offset, thermalData]);
+
+    if (!thermalData) return null;
 
     return (
         <div
             ref={containerRef}
-            className="w-full h-full relative overflow-hidden bg-slate-900 cursor-crosshair"
+            className="w-full h-full relative overflow-hidden bg-muted cursor-crosshair"
             onMouseMove={handleMouseMove}
-            onMouseDown={handleMouseDown}
-            onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseLeave}
-            onWheel={handleWheel}
+            onMouseEnter={handleMouseEnter}
         >
             <canvas
                 ref={canvasRef}
@@ -215,35 +198,40 @@ export function ThermalCanvas({
                 style={{
                     transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
                     transformOrigin: '0 0',
-                    imageRendering: 'pixelated', // Keep sharp pixels for thermal data
+                    imageRendering: 'pixelated',
                 }}
             />
-            {/* Reset View Button */}
-            <button
-                className="absolute bottom-2 right-2 bg-black/50 hover:bg-black/70 text-white p-1.5 rounded-md z-10 transition-colors"
-                onClick={(e) => {
-                    e.stopPropagation();
-                    // Re-trigger fit logic
-                    if (thermalData && containerRef.current) {
-                        const container = containerRef.current;
-                        const containerWidth = container.clientWidth;
-                        const containerHeight = container.clientHeight;
-                        const scaleX = containerWidth / thermalData.width;
-                        const scaleY = containerHeight / thermalData.height;
-                        const fitScale = Math.min(scaleX, scaleY, 1);
-                        const centerX = (containerWidth - thermalData.width * fitScale) / 2;
-                        const centerY = (containerHeight - thermalData.height * fitScale) / 2;
-                        setScale(fitScale);
-                        setOffset({ x: centerX, y: centerY });
-                    }
-                }}
-                title="Reset View"
+
+            {/* Measuring indicator */}
+            {isHovered && (
+                <div className="absolute top-3 right-3 flex items-center gap-1.5 px-2 py-1 bg-background/90 backdrop-blur-sm rounded border shadow-sm">
+                    <Crosshair className="w-3 h-3 text-green-600" />
+                    <span className="text-[10px] font-medium uppercase tracking-wide">Measuring</span>
+                </div>
+            )}
+
+            {/* Zoom Controls */}
+            <div
+                className={`absolute bottom-4 right-4 flex items-center gap-1 p-1 bg-background/90 backdrop-blur-sm rounded-lg border shadow-sm transition-opacity duration-200 ${isHovered ? 'opacity-100' : 'opacity-50'}`}
             >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                    <path d="M3 3v5h5" />
-                </svg>
-            </button>
+                <button onClick={handleZoomOut} className="p-2 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
+                    <ZoomOut className="w-4 h-4" />
+                </button>
+                <button onClick={handleZoomIn} className="p-2 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
+                    <ZoomIn className="w-4 h-4" />
+                </button>
+                <div className="w-px h-5 bg-border" />
+                <button onClick={centerImage} className="p-2 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
+                    <RotateCcw className="w-4 h-4" />
+                </button>
+            </div>
+
+            {/* Zoom level */}
+            {scale !== 1 && (
+                <div className="absolute bottom-4 left-4 px-2 py-1 bg-background/90 backdrop-blur-sm rounded text-xs font-mono border shadow-sm">
+                    {Math.round(scale * 100)}%
+                </div>
+            )}
         </div>
     );
 }

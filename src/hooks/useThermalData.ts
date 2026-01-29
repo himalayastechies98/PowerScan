@@ -3,7 +3,7 @@ import { ThermalData } from '@/components/measure-image/ThermalCanvas';
 
 // Using the port we found in the user logs (10000)
 // In a real app this should be an env var
-const THERMAL_API_URL = 'http://localhost:10000/api/thermal';
+const THERMAL_API_URL = 'https://powerscan-backend.onrender.com/api/thermal';
 
 export function useThermalData() {
     const [thermalData, setThermalData] = useState<ThermalData | null>(null);

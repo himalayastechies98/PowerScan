@@ -29,6 +29,7 @@ interface DistributionTableProps {
     setSearchTerm: (value: string) => void;
     onDeleteInspection: (id: string) => void;
     onEditInspection: (id: string) => void;
+    onStatusChange: (id: string, newStatus: string) => Promise<void>;
     isLoading?: boolean;
 }
 
@@ -38,6 +39,7 @@ export function DistributionTable({
     setSearchTerm,
     onDeleteInspection,
     onEditInspection,
+    onStatusChange,
     isLoading = false,
 }: DistributionTableProps) {
     const navigate = useNavigate();
@@ -92,7 +94,6 @@ export function DistributionTable({
                     <TableHeader>
                         <TableRow>
                             <TableHead>Name</TableHead>
-                            <TableHead>EA</TableHead>
                             <TableHead>Feeder</TableHead>
                             <TableHead>Status</TableHead>
                             <TableHead>Vehicle</TableHead>
@@ -105,13 +106,13 @@ export function DistributionTable({
                     <TableBody>
                         {isLoading ? (
                             <TableRow>
-                                <TableCell colSpan={9} className="text-center py-8">
+                                <TableCell colSpan={8} className="text-center py-8">
                                     Loading...
                                 </TableCell>
                             </TableRow>
                         ) : paginatedData.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={9} className="text-center py-8">
+                                <TableCell colSpan={8} className="text-center py-8">
                                     No data found
                                 </TableCell>
                             </TableRow>
@@ -119,7 +120,6 @@ export function DistributionTable({
                             paginatedData.map((record) => (
                                 <TableRow key={record.id}>
                                     <TableCell className="font-medium">{record.name}</TableCell>
-                                    <TableCell>{record.ea}</TableCell>
                                     <TableCell>{record.feeder}</TableCell>
                                     <TableCell>
                                         <Badge className={cn("font-normal", getStatusColor(record.status))}>
@@ -152,8 +152,10 @@ export function DistributionTable({
                                             </Button>
                                             <DistributionActionMenu
                                                 recordId={record.id}
+                                                status={record.status}
                                                 onDelete={onDeleteInspection}
                                                 onEdit={onEditInspection}
+                                                onStatusChange={onStatusChange}
                                             />
                                         </div>
                                     </TableCell>

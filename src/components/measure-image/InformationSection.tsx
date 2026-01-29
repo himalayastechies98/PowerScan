@@ -1,18 +1,73 @@
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Slider } from "@/components/ui/slider";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Loader2 } from "lucide-react";
 import { excelDateToJS, excelTimeToJS } from "@/utils/dateUtils";
 import { Measure } from "@/hooks/useMeasureData";
+import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
 
 interface InformationSectionProps {
     isOpen: boolean;
     onOpenChange: (open: boolean) => void;
     measure: Measure | null;
+    onMeasureUpdated?: (updatedMeasure: Measure) => void;
 }
 
-export function InformationSection({ isOpen, onOpenChange, measure }: InformationSectionProps) {
+export function InformationSection({ isOpen, onOpenChange, measure, onMeasureUpdated }: InformationSectionProps) {
+    const [observations, setObservations] = useState(measure?.observations || "");
+    const [isSaving, setIsSaving] = useState(false);
+    const [hasChanges, setHasChanges] = useState(false);
+
+    // Update local state when measure changes
+    useEffect(() => {
+        setObservations(measure?.observations || "");
+        setHasChanges(false);
+    }, [measure?.id_unico]);
+
+    const handleObservationsChange = (value: string) => {
+        setObservations(value);
+        setHasChanges(value !== (measure?.observations || ""));
+    };
+
+    const handleSave = async () => {
+        if (!measure?.id_unico) {
+            toast.error("No measure selected");
+            return;
+        }
+
+        setIsSaving(true);
+        try {
+            const { data, error } = await supabase
+                .from('inspection_measure')
+                .update({ observations })
+                .eq('id_unico', measure.id_unico)
+                .select()
+                .single();
+
+            if (error) {
+                console.error('Error saving observations:', error);
+                toast.error("Failed to save observations");
+                return;
+            }
+
+            toast.success("Observations saved successfully");
+            setHasChanges(false);
+
+            // Notify parent component of update
+            if (onMeasureUpdated && data) {
+                onMeasureUpdated(data as Measure);
+            }
+        } catch (err) {
+            console.error('Error:', err);
+            toast.error("An error occurred while saving");
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
     return (
         <Collapsible open={isOpen} onOpenChange={onOpenChange}>
             <Card>
@@ -39,11 +94,12 @@ export function InformationSection({ isOpen, onOpenChange, measure }: Informatio
                             <div className="flex items-start justify-between">
                                 <div className="flex-1">
                                     <div className="text-sm font-bold mb-1.5">Coordinates</div>
-                                    <div className="text-sm">-</div>
+                                    <div className="text-sm">
+                                        {measure?.latitude && measure?.longitude
+                                            ? `${measure.latitude}, ${measure.longitude}`
+                                            : '-'}
+                                    </div>
                                 </div>
-                                <Button variant="default" size="sm" className="h-9 w-9 p-0 ml-2">
-                                    💾
-                                </Button>
                             </div>
 
                             {/* Row 2 */}
@@ -59,7 +115,7 @@ export function InformationSection({ isOpen, onOpenChange, measure }: Informatio
                             </div>
                             <div>
                                 <div className="text-sm font-bold mb-1.5">Wind</div>
-                                <div className="text-sm">-</div>
+                                <div className="text-sm">{measure?.vel_do_ar_na_inspecao_ms ? `${measure.vel_do_ar_na_inspecao_ms} m/s` : '-'}</div>
                             </div>
                             <div>
                                 <div className="text-sm font-bold mb-1.5">Temperature</div>
@@ -71,19 +127,19 @@ export function InformationSection({ isOpen, onOpenChange, measure }: Informatio
                             {/* Row 3 */}
                             <div>
                                 <div className="text-sm font-bold mb-1.5">Detected Feeders</div>
-                                <div className="text-sm">-</div>
+                                <div className="text-sm">{measure?.alimentador || '-'}</div>
                             </div>
                             <div>
-                                <div className="text-sm font-bold mb-1.5">Inspection Name</div>
-                                <div className="text-sm">-</div>
+                                <div className="text-sm font-bold mb-1.5">Inspector</div>
+                                <div className="text-sm">{measure?.inspetor || '-'}</div>
                             </div>
                             <div>
-                                <div className="text-sm font-bold mb-1.5">Inspection Feeder</div>
-                                <div className="text-sm text-primary font-medium">-</div>
+                                <div className="text-sm font-bold mb-1.5">Regional</div>
+                                <div className="text-sm text-primary font-medium">{measure?.regional || '-'}</div>
                             </div>
                             <div>
-                                <div className="text-sm font-bold mb-1.5">Speed</div>
-                                <div className="text-sm">-</div>
+                                <div className="text-sm font-bold mb-1.5">Severity</div>
+                                <div className="text-sm">{measure?.severidade || '-'}</div>
                             </div>
 
                             {/* Row 4 */}
@@ -91,8 +147,10 @@ export function InformationSection({ isOpen, onOpenChange, measure }: Informatio
                                 <div className="text-sm font-bold mb-1.5">Observations</div>
                                 <textarea
                                     className="w-full h-24 px-3 py-2 text-sm border rounded-md bg-background resize-none focus:outline-none focus:ring-2 focus:ring-ring"
-                                    placeholder="update this"
-                                ></textarea>
+                                    placeholder="Enter observations about this measure..."
+                                    value={observations}
+                                    onChange={(e) => handleObservationsChange(e.target.value)}
+                                />
                             </div>
                             <div>
                                 <div className="text-sm font-bold mb-1.5">Load</div>
@@ -104,9 +162,25 @@ export function InformationSection({ isOpen, onOpenChange, measure }: Informatio
                         </div>
 
                         <div className="mt-5">
-                            <Button variant="default" size="sm" className="h-9 px-4">
-                                💾 Save
+                            <Button
+                                variant="default"
+                                size="sm"
+                                className="h-9 px-4"
+                                onClick={handleSave}
+                                disabled={isSaving || !hasChanges}
+                            >
+                                {isSaving ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                        Saving...
+                                    </>
+                                ) : (
+                                    <>💾 Save</>
+                                )}
                             </Button>
+                            {hasChanges && (
+                                <span className="ml-3 text-xs text-muted-foreground">Unsaved changes</span>
+                            )}
                         </div>
                     </CardContent>
                 </CollapsibleContent>
