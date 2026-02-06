@@ -1,20 +1,11 @@
 // @ts-nocheck - react-leaflet v4.2.1 types compatibility
+import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Layers, Maximize2, MoreVertical } from "lucide-react";
+import { Layers, Maximize2, MoreVertical, Loader2, MapPin } from "lucide-react";
 import { MapContainer, TileLayer, CircleMarker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
-
-const locations = [
-  { lat: 29.39, lng: 76.97, name: "North District - Sector 7", status: "warning", temp: "78.5°C", type: "Thermal", id: "INS-2023-1458" },
-  { lat: 29.42, lng: 77.0, name: "East District - Main Line", status: "normal", temp: "42.1°C", type: "Visual", id: "INS-2023-1457" },
-  { lat: 29.36, lng: 76.94, name: "South District - Junction B", status: "critical", temp: "92.7°C", type: "Corona", id: "INS-2023-1456" },
-  { lat: 29.4, lng: 76.9, name: "West District - Substation 3", status: "normal", temp: "39.2°C", type: "Lidar", id: "INS-2023-1455" },
-  { lat: 29.44, lng: 76.98, name: "North District - Tower 42", status: "warning", temp: "67.8°C", type: "Thermal", id: "INS-2023-1454" },
-  { lat: 29.37, lng: 77.02, name: "East District - Sector 12", status: "normal", temp: "45.3°C", type: "Visual", id: "INS-2023-1453" },
-  { lat: 29.35, lng: 76.96, name: "South District - Tower 18", status: "critical", temp: "88.9°C", type: "Thermal", id: "INS-2023-1452" },
-  { lat: 29.41, lng: 76.92, name: "West District - Line 5", status: "warning", temp: "72.4°C", type: "Corona", id: "INS-2023-1451" },
-];
+import { useDashboardData } from "@/hooks/useDashboardData";
 
 const getMarkerColor = (status: string) => {
   switch (status) {
@@ -25,15 +16,54 @@ const getMarkerColor = (status: string) => {
     case "normal":
       return "#43a047";
     default:
-      return "#1976d2";
+      return "#7c3aed";
+  }
+};
+
+const getStatusLabel = (status: string) => {
+  switch (status) {
+    case "critical":
+      return "Immediate Action";
+    case "warning":
+      return "Scheduled Action";
+    case "normal":
+      return "No Action";
+    default:
+      return "Not Defined";
   }
 };
 
 export function MapSection() {
+  const { t } = useTranslation();
+  const { mapLocations, stats } = useDashboardData();
+
+  // Calculate center based on data or use default
+  const getCenter = () => {
+    if (mapLocations.length > 0) {
+      const avgLat = mapLocations.reduce((sum, loc) => sum + loc.lat, 0) / mapLocations.length;
+      const avgLng = mapLocations.reduce((sum, loc) => sum + loc.lng, 0) / mapLocations.length;
+      return [avgLat, avgLng] as [number, number];
+    }
+    return [-25.42, -49.26] as [number, number]; // Default to Brazil
+  };
+
+  if (stats.loading) {
+    return (
+      <Card className="mb-6">
+        <CardContent className="p-6 flex items-center justify-center h-[450px]">
+          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="mb-6">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-        <CardTitle>Inspection Locations</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          <MapPin className="w-5 h-5 text-primary" />
+          {t('locationOverview')}
+        </CardTitle>
         <div className="flex gap-2">
           <Button variant="ghost" size="icon">
             <Layers className="w-4 h-4" />
@@ -47,53 +77,82 @@ export function MapSection() {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="h-[400px] rounded-lg overflow-hidden">
-          <MapContainer
-            center={[29.39, 76.97]}
-            zoom={11}
-            scrollWheelZoom={false}
-            style={{ height: "100%", width: "100%" }}
-          >
-            <TileLayer
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            />
-            {locations.map((loc, idx) => (
-              <CircleMarker
-                key={idx}
-                center={[loc.lat, loc.lng]}
-                pathOptions={{
-                  fillColor: getMarkerColor(loc.status),
-                  color: "#fff",
-                  weight: 2,
-                  opacity: 1,
-                  fillOpacity: 0.8,
-                }}
-                radius={8}
-              >
-                <Popup>
-                  <div className="text-sm">
-                    <strong className="block mb-1">{loc.name}</strong>
-                    <div>
-                      <b>ID:</b> {loc.id}
+        {/* Legend */}
+        <div className="flex flex-wrap gap-4 mb-4">
+          <div className="flex items-center gap-2">
+            <span className="w-3 h-3 rounded-full bg-red-500" />
+            <span className="text-sm text-muted-foreground">{t('immediateAction')}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-3 h-3 rounded-full bg-orange-500" />
+            <span className="text-sm text-muted-foreground">{t('scheduledAction')}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-3 h-3 rounded-full bg-green-500" />
+            <span className="text-sm text-muted-foreground">{t('noAction')}</span>
+          </div>
+        </div>
+
+        <div className="h-[400px] rounded-lg overflow-hidden border border-border">
+          {mapLocations.length === 0 ? (
+            <div className="h-full flex items-center justify-center bg-muted/50">
+              <div className="text-center text-muted-foreground">
+                <MapPin className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                <p>No location data available</p>
+              </div>
+            </div>
+          ) : (
+            <MapContainer
+              center={getCenter()}
+              zoom={10}
+              scrollWheelZoom={false}
+              style={{ height: "100%", width: "100%" }}
+            >
+              <TileLayer
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              />
+              {mapLocations.map((loc, idx) => (
+                <CircleMarker
+                  key={idx}
+                  center={[loc.lat, loc.lng]}
+                  pathOptions={{
+                    fillColor: getMarkerColor(loc.status),
+                    color: "#fff",
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 0.8,
+                  }}
+                  radius={10}
+                >
+                  <Popup>
+                    <div className="text-sm min-w-[180px]">
+                      <strong className="block mb-2 text-base">{loc.name}</strong>
+                      <div className="space-y-1">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">ID:</span>
+                          <span className="font-medium">{loc.id}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">{t('temperature')}:</span>
+                          <span className="font-medium">{loc.temp}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">{t('status')}:</span>
+                          <span
+                            className="font-bold"
+                            style={{ color: getMarkerColor(loc.status) }}
+                          >
+                            {getStatusLabel(loc.status)}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <b>Type:</b> {loc.type}
-                    </div>
-                    <div>
-                      <b>Temperature:</b> {loc.temp}
-                    </div>
-                    <div>
-                      <b>Status:</b>{" "}
-                      <span style={{ color: getMarkerColor(loc.status), fontWeight: "bold" }}>
-                        {loc.status.charAt(0).toUpperCase() + loc.status.slice(1)}
-                      </span>
-                    </div>
-                  </div>
-                </Popup>
-              </CircleMarker>
-            ))}
-          </MapContainer>
+                  </Popup>
+                </CircleMarker>
+              ))}
+            </MapContainer>
+          )}
         </div>
       </CardContent>
     </Card>

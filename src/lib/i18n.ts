@@ -17,25 +17,25 @@ const resources = {
       create: 'Create',
       search: 'Search',
       loading: 'Loading...',
-      
+
       // Navigation
       dashboard: 'Dashboard',
       profile: 'Profile',
       clients: 'Clients',
       inspections: 'Inspections',
       uploadInspection: 'Upload Inspection',
-      
+
       // Auth
       loginTitle: 'Welcome Back',
       loginSubtitle: 'Sign in to your account',
       loginError: 'Invalid email or password',
-      
+
       // Profile
       profileTitle: 'Your Profile',
       fullName: 'Full Name',
       updateProfile: 'Update Profile',
       profileUpdated: 'Profile updated successfully',
-      
+
       // Clients (Admin)
       manageClients: 'Manage Clients',
       createClient: 'Create New Client',
@@ -43,7 +43,7 @@ const resources = {
       clientEmail: 'Client Email',
       temporaryPassword: 'Temporary Password',
       clientCreated: 'Client created and email sent',
-      
+
       // Inspections (Client)
       myInspections: 'My Inspections',
       uploadNew: 'Upload New Inspection',
@@ -55,27 +55,42 @@ const resources = {
       inspectionDate: 'Inspection Date',
       file: 'File',
       uploadSuccess: 'Inspection uploaded successfully',
-      
+
       // Roles
       admin: 'Admin',
       client: 'Client',
       role: 'Role',
-      
+
       // Theme
       toggleTheme: 'Toggle theme',
       lightMode: 'Light',
       darkMode: 'Dark',
       systemMode: 'System',
-      
+
       // Dashboard
       dashboardTitle: 'Power Line Analytics Dashboard',
       dashboardSubtitle: 'Monitor and analyze power line inspection data in real-time',
       welcomeMessage: 'Welcome! Use the sidebar to navigate to your inspections.',
-      
+      totalInspections: 'Total Inspections',
+      totalMeasures: 'Total Measures',
+      hotspotsDetected: 'Hotspots Detected',
+      activeFeeders: 'Active Feeders',
+      measuresBySeverity: 'Measures by Severity',
+      inspectionsOverTime: 'Inspections Over Time',
+      recentActivity: 'Recent Activity',
+      locationOverview: 'Location Overview',
+      viewAll: 'View All',
+      noRecentActivity: 'No recent activity',
+      fromLastMonth: 'from last month',
+      today: 'Today',
+      thisWeek: 'This Week',
+      newItems: 'New',
+      allSystemsLive: 'All Systems Live',
+
       // Footer
       copyright: '© 2025 PowerScan Analytics. All rights reserved.',
       version: 'Version 3.2.1',
-      
+
       // Common UI
       main: 'Main',
       createdAt: 'Created At',
@@ -109,7 +124,6 @@ const resources = {
       distanceTraveled: 'Distance traveled',
       firstMeasure: 'First measure',
       lastMeasure: 'Last measure',
-      totalMeasures: 'Total measures',
       totalTime: 'Total time',
       dailyStatistics: 'Daily Statistics',
       measuresCarThermographic: 'Measures - Car - Thermographic',
@@ -135,7 +149,7 @@ const resources = {
       scheduledAction: 'Scheduled Action',
       noAction: 'No Action',
       actionNotDefined: 'Action not Defined',
-      
+
       // MeasureImageDetails
       filter: 'Filter',
       sort: 'Sort',
@@ -184,25 +198,25 @@ const resources = {
       create: 'Crear',
       search: 'Buscar',
       loading: 'Cargando...',
-      
+
       // Navigation
       dashboard: 'Panel',
       profile: 'Perfil',
       clients: 'Clientes',
       inspections: 'Inspecciones',
       uploadInspection: 'Subir Inspección',
-      
+
       // Auth
       loginTitle: 'Bienvenido de nuevo',
       loginSubtitle: 'Inicia sesión en tu cuenta',
       loginError: 'Correo o contraseña inválidos',
-      
+
       // Profile
       profileTitle: 'Tu Perfil',
       fullName: 'Nombre Completo',
       updateProfile: 'Actualizar Perfil',
       profileUpdated: 'Perfil actualizado exitosamente',
-      
+
       // Clients (Admin)
       manageClients: 'Gestionar Clientes',
       createClient: 'Crear Nuevo Cliente',
@@ -210,7 +224,7 @@ const resources = {
       clientEmail: 'Correo del Cliente',
       temporaryPassword: 'Contraseña Temporal',
       clientCreated: 'Cliente creado y correo enviado',
-      
+
       // Inspections (Client)
       myInspections: 'Mis Inspecciones',
       uploadNew: 'Subir Nueva Inspección',
@@ -222,27 +236,42 @@ const resources = {
       inspectionDate: 'Fecha de Inspección',
       file: 'Archivo',
       uploadSuccess: 'Inspección subida exitosamente',
-      
+
       // Roles
       admin: 'Administrador',
       client: 'Cliente',
       role: 'Rol',
-      
+
       // Theme
       toggleTheme: 'Cambiar tema',
       lightMode: 'Claro',
       darkMode: 'Oscuro',
       systemMode: 'Sistema',
-      
+
       // Dashboard
       dashboardTitle: 'Panel de Análisis de Líneas Eléctricas',
       dashboardSubtitle: 'Monitorea y analiza datos de inspección de líneas eléctricas en tiempo real',
       welcomeMessage: '¡Bienvenido! Usa la barra lateral para navegar a tus inspecciones.',
-      
+      totalInspections: 'Inspecciones Totales',
+      totalMeasures: 'Medidas Totales',
+      hotspotsDetected: 'Puntos Calientes',
+      activeFeeders: 'Alimentadores Activos',
+      measuresBySeverity: 'Medidas por Severidad',
+      inspectionsOverTime: 'Inspecciones en el Tiempo',
+      recentActivity: 'Actividad Reciente',
+      locationOverview: 'Vista de Ubicaciones',
+      viewAll: 'Ver Todo',
+      noRecentActivity: 'Sin actividad reciente',
+      fromLastMonth: 'del mes pasado',
+      today: 'Hoy',
+      thisWeek: 'Esta Semana',
+      newItems: 'Nuevos',
+      allSystemsLive: 'Todos los Sistemas Activos',
+
       // Footer
       copyright: '© 2025 PowerScan Analytics. Todos los derechos reservados.',
       version: 'Versión 3.2.1',
-      
+
       // Common UI
       main: 'Principal',
       createdAt: 'Creado el',
@@ -276,7 +305,6 @@ const resources = {
       distanceTraveled: 'Distancia recorrida',
       firstMeasure: 'Primera medida',
       lastMeasure: 'Última medida',
-      totalMeasures: 'Medidas totales',
       totalTime: 'Tiempo total',
       dailyStatistics: 'Estadísticas Diarias',
       measuresCarThermographic: 'Medidas - Auto - Termográfico',
@@ -302,7 +330,7 @@ const resources = {
       scheduledAction: 'Acción Programada',
       noAction: 'Sin Acción',
       actionNotDefined: 'Acción no definida',
-      
+
       // MeasureImageDetails
       filter: 'Filtrar',
       sort: 'Ordenar',
@@ -351,25 +379,25 @@ const resources = {
       create: 'Criar',
       search: 'Buscar',
       loading: 'Carregando...',
-      
+
       // Navigation
       dashboard: 'Painel',
       profile: 'Perfil',
       clients: 'Clientes',
       inspections: 'Inspeções',
       uploadInspection: 'Enviar Inspeção',
-      
+
       // Auth
       loginTitle: 'Bem-vindo de volta',
       loginSubtitle: 'Entre na sua conta',
       loginError: 'E-mail ou senha inválidos',
-      
+
       // Profile
       profileTitle: 'Seu Perfil',
       fullName: 'Nome Completo',
       updateProfile: 'Atualizar Perfil',
       profileUpdated: 'Perfil atualizado com sucesso',
-      
+
       // Clients (Admin)
       manageClients: 'Gerenciar Clientes',
       createClient: 'Criar Novo Cliente',
@@ -377,7 +405,7 @@ const resources = {
       clientEmail: 'E-mail do Cliente',
       temporaryPassword: 'Senha Temporária',
       clientCreated: 'Cliente criado e e-mail enviado',
-      
+
       // Inspections (Client)
       myInspections: 'Minhas Inspeções',
       uploadNew: 'Enviar Nova Inspeção',
@@ -389,27 +417,42 @@ const resources = {
       inspectionDate: 'Data da Inspeção',
       file: 'Arquivo',
       uploadSuccess: 'Inspeção enviada com sucesso',
-      
+
       // Roles
       admin: 'Administrador',
       client: 'Cliente',
       role: 'Função',
-      
+
       // Theme
       toggleTheme: 'Alternar tema',
       lightMode: 'Claro',
       darkMode: 'Escuro',
       systemMode: 'Sistema',
-      
+
       // Dashboard
       dashboardTitle: 'Painel de Análise de Linhas Elétricas',
       dashboardSubtitle: 'Monitore e analise dados de inspeção de linhas elétricas em tempo real',
       welcomeMessage: 'Bem-vindo! Use a barra lateral para navegar até suas inspeções.',
-      
+      totalInspections: 'Inspeções Totais',
+      totalMeasures: 'Medidas Totais',
+      hotspotsDetected: 'Pontos Quentes',
+      activeFeeders: 'Alimentadores Ativos',
+      measuresBySeverity: 'Medidas por Severidade',
+      inspectionsOverTime: 'Inspeções ao Longo do Tempo',
+      recentActivity: 'Atividade Recente',
+      locationOverview: 'Visão de Localizações',
+      viewAll: 'Ver Tudo',
+      noRecentActivity: 'Sem atividade recente',
+      fromLastMonth: 'do mês passado',
+      today: 'Hoje',
+      thisWeek: 'Esta Semana',
+      newItems: 'Novos',
+      allSystemsLive: 'Todos os Sistemas Ativos',
+
       // Footer
       copyright: '© 2025 PowerScan Analytics. Todos os direitos reservados.',
       version: 'Versão 3.2.1',
-      
+
       // Common UI
       main: 'Principal',
       createdAt: 'Criado em',
@@ -443,7 +486,6 @@ const resources = {
       distanceTraveled: 'Distância percorrida',
       firstMeasure: 'Primeira medida',
       lastMeasure: 'Última medida',
-      totalMeasures: 'Medidas totais',
       totalTime: 'Tempo total',
       dailyStatistics: 'Estatísticas Diárias',
       measuresCarThermographic: 'Medidas - Carro - Termográfico',
@@ -469,7 +511,7 @@ const resources = {
       scheduledAction: 'Ação Programada',
       noAction: 'Sem Ação',
       actionNotDefined: 'Ação não definida',
-      
+
       // MeasureImageDetails
       filter: 'Filtrar',
       sort: 'Ordenar',
