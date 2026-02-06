@@ -161,9 +161,9 @@ export function Sidebar({ isOpen, onClose, onOpenProfile }: SidebarProps) {
         <div className="p-4 border-b border-sidebar-border flex-shrink-0">
           <div className="flex items-center gap-2">
             <div className="w-10 h-10 rounded-lg bg-sidebar-primary flex items-center justify-center">
-              <span className="text-xl font-bold text-sidebar-primary-foreground">P</span>
+              <span className="text-xl font-bold text-sidebar-primary-foreground">H</span>
             </div>
-            <span className="text-xl font-semibold text-sidebar-foreground">PowerScan</span>
+            <span className="text-xl font-semibold text-sidebar-foreground">himalayastechies</span>
           </div>
         </div>
 
