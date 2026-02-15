@@ -14,9 +14,9 @@ export const normalizeExcelRow = (row: any) => {
         return value;
     };
 
-    // Collect images from Imagem 1-2 columns
+    // Collect images from Imagem 2-3 columns (Skipping 1 as per request)
     const images: { name: string; value: string }[] = [];
-    for (let i = 1; i <= 2; i++) {
+    for (let i = 2; i <= 3; i++) {
         const imageKey = `Imagem ${i}`;
         const imageValue = getValue(imageKey);
         if (imageValue !== null) {
