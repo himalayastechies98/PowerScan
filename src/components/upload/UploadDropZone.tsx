@@ -32,8 +32,8 @@ export function UploadDropZone({
                 onDragLeave={onDragLeave}
                 onDrop={onDrop}
                 className={`border-2 border-dashed rounded-lg p-12 text-center transition-colors ${isDragging
-                        ? "border-primary bg-primary/5"
-                        : "border-border hover:border-primary/50"
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-primary/50"
                     }`}
             >
                 <Upload className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
@@ -53,9 +53,11 @@ export function UploadDropZone({
                     id={inputId}
                     type="file"
                     multiple
+                    accept=".zip"
                     className="hidden"
                     onChange={onFileSelect}
                 />
+                <p className="text-xs text-muted-foreground mt-3">Only .zip files are accepted</p>
             </div>
         </Card>
     );

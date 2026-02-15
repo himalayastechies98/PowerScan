@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { RotateCcw, FileDown, FileType, Eye, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/lib/supabase";
 import { Measure, MeasureImage } from "@/hooks/useMeasureData";
 
 interface TopActionBarProps {
@@ -16,6 +18,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 export function TopActionBar({ inspectionId, measure, measureImages = [] }: TopActionBarProps) {
     const navigate = useNavigate();
+    const { i18n } = useTranslation();
     const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
     const handleDownloadPDF = async () => {
@@ -30,6 +33,23 @@ export function TopActionBar({ inspectionId, measure, measureImages = [] }: TopA
             // Find thermal and optical images
             const thermalImage = measureImages.find(img => img.type === 'thermal');
             const opticalImage = measureImages.find(img => img.type === 'optical');
+
+            // Fetch measure actions from database
+            const { data: actions } = await supabase
+                .from('measure_actions')
+                .select('*')
+                .eq('measure_id', measure.id_unico)
+                .order('marker_index', { ascending: true });
+
+            // Map actions to elements format for the PDF table
+            const elements = (actions || []).map((action: any) => ({
+                numero_operativo: 'N/A',
+                elemento: `(${action.marker_index}) ${action.element_type || '-'}`,
+                temperatura: action.temperature ? `${action.temperature}` : '-',
+                metodo: '-',
+                calculada: '-',
+                acao: action.final_action || '-'
+            }));
 
             // Prepare request body matching the API schema
             const requestBody = {
@@ -54,7 +74,11 @@ export function TopActionBar({ inspectionId, measure, measureImages = [] }: TopA
                 },
                 thermal_image_url: thermalImage?.url || null,
                 optical_image_url: opticalImage?.url || null,
-                elements: [] // Add elements data if available
+                client_company_logo_url: measure.client_company_logo
+                    ? supabase.storage.from('inspection-measure-images').getPublicUrl(measure.client_company_logo).data.publicUrl
+                    : null,
+                language: i18n.language,
+                elements: elements
             };
 
             const response = await fetch(`${API_BASE_URL}/api/pdf/${measure.id_unico}`, {

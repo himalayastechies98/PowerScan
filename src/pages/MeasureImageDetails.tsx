@@ -9,8 +9,10 @@ import {
     ImagesSection,
     InformationSection,
     ActionsSection,
-    TopActionBar
+    TopActionBar,
+    LocationMapSection
 } from "@/components/measure-image";
+import { Marker } from "@/components/measure-image/ThermalCanvas";
 
 export default function MeasureImageDetails() {
     const { id } = useParams();
@@ -18,8 +20,10 @@ export default function MeasureImageDetails() {
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [imagesOpen, setImagesOpen] = useState(true);
     const [informationOpen, setInformationOpen] = useState(true);
+    const [locationMapOpen, setLocationMapOpen] = useState(false);
     const [actionsOpen, setActionsOpen] = useState(true);
     const [viewMode, setViewMode] = useState<"list" | "grid">("list");
+    const [markers, setMarkers] = useState<Marker[]>([]);
 
     // Use custom hook for data fetching
     const {
@@ -31,8 +35,21 @@ export default function MeasureImageDetails() {
         hasMore,
         listRef,
         handleScroll,
-        inspectionId
+        inspectionId,
+        updateCurrentMeasure
     } = useMeasureData(id);
+
+    // Handler for updating a single marker
+    const handleUpdateMarker = (markerId: string, updates: Partial<Marker>) => {
+        setMarkers(prev => prev.map(m =>
+            m.id === markerId ? { ...m, ...updates } : m
+        ));
+    };
+
+    // Handler for deleting a marker
+    const handleDeleteMarker = (markerId: string) => {
+        setMarkers(prev => prev.filter(m => m.id !== markerId));
+    };
 
     return (
         <div className="min-h-screen flex w-full bg-background">
@@ -74,6 +91,10 @@ export default function MeasureImageDetails() {
                             isOpen={imagesOpen}
                             onOpenChange={setImagesOpen}
                             measureImages={measureImages}
+                            markers={markers}
+                            onMarkersChange={setMarkers}
+                            maxTemperature={currentMeasure?.temp1_c}
+                            minTemperature={currentMeasure?.temp_minima_c}
                         />
 
                         {/* Information Section */}
@@ -81,12 +102,25 @@ export default function MeasureImageDetails() {
                             isOpen={informationOpen}
                             onOpenChange={setInformationOpen}
                             measure={currentMeasure}
+                            onMeasureUpdated={updateCurrentMeasure}
                         />
 
                         {/* Actions Section */}
                         <ActionsSection
                             isOpen={actionsOpen}
                             onOpenChange={setActionsOpen}
+                            markers={markers}
+                            onUpdateMarker={handleUpdateMarker}
+                            onDeleteMarker={handleDeleteMarker}
+                            measureId={id}
+                            onLoadMarkers={setMarkers}
+                        />
+
+                        {/* Location Map Section */}
+                        <LocationMapSection
+                            isOpen={locationMapOpen}
+                            onOpenChange={setLocationMapOpen}
+                            measure={currentMeasure}
                         />
                     </div>
                 </main>

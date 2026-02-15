@@ -12,7 +12,8 @@ import { Sidebar } from "@/components/dashboard/Sidebar";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { ProfileModal } from "@/components/ProfileModal";
-import { MapContainer, TileLayer, GeoJSON, useMap, ZoomControl } from "react-leaflet";
+import { MapContainer, TileLayer, GeoJSON, useMap, ZoomControl, Marker, Popup } from "react-leaflet";
+import L from "leaflet";
 import type { Map as LeafletMap } from "leaflet";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
@@ -31,6 +32,28 @@ function MapController({
   const map = useMap();
   mapRef.current = map;
   return null;
+}
+
+// Create a custom SVG pin icon for map markers
+function createPinIcon(color: string, size: number = 32) {
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size * 1.3}" viewBox="0 0 24 32">
+      <defs>
+        <filter id="shadow" x="-20%" y="-10%" width="140%" height="140%">
+          <feDropShadow dx="0" dy="1" stdDeviation="1.5" flood-color="#00000040"/>
+        </filter>
+      </defs>
+      <path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 20 12 20s12-11 12-20C24 5.4 18.6 0 12 0z" fill="${color}" filter="url(#shadow)" stroke="white" stroke-width="1.5"/>
+      <circle cx="12" cy="11" r="5" fill="white" opacity="0.9"/>
+      <circle cx="12" cy="11" r="3" fill="${color}"/>
+    </svg>`;
+  return L.divIcon({
+    html: svg,
+    className: '',
+    iconSize: [size, size * 1.3],
+    iconAnchor: [size / 2, size * 1.3],
+    popupAnchor: [0, -(size * 1.3)],
+  });
 }
 
 const measureData = [
@@ -88,7 +111,7 @@ export default function MeasureDetails() {
 
       const { data, error } = await supabase
         .from('inspection_measure')
-        .select('*')
+        .select('id_unico, registro_num, data_criacao, localizacao, temp1_c, images, created_at, latitude, longitude')
         .eq('inspection_id', id)
         .order('registro_num', { ascending: true });
 
@@ -99,6 +122,14 @@ export default function MeasureDetails() {
       }
 
       setMeasures(data || []);
+
+      // Debug: Log measures with coordinates
+      const measuresWithCoords = (data || []).filter((m: any) => m.latitude && m.longitude);
+      console.log('📍 Total measures:', data?.length || 0);
+      console.log('📍 Measures with coordinates:', measuresWithCoords.length);
+      if (measuresWithCoords.length > 0) {
+        console.log('📍 Sample measure coords:', measuresWithCoords[0].latitude, measuresWithCoords[0].longitude);
+      }
     } catch (err) {
       console.error('Error:', err);
       toast.error('An error occurred while loading measures');
@@ -308,6 +339,39 @@ export default function MeasureDetails() {
     loadFeederData();
   }, [id]);
 
+  // Zoom to measures if we have measure coordinates but no feeder bounds yet
+  useEffect(() => {
+    if (!mapRef.current || measures.length === 0) return;
+
+    const measuresWithCoords = measures.filter((m: any) => m.latitude && m.longitude);
+    if (measuresWithCoords.length === 0) return;
+
+    // If we have feeder bounds, combine with measure bounds; otherwise just use measures
+    const lats = measuresWithCoords.map((m: any) => m.latitude);
+    const lngs = measuresWithCoords.map((m: any) => m.longitude);
+
+    // Add feeder bounds if available
+    if (feederBounds) {
+      lats.push(feederBounds[0][0], feederBounds[1][0]);
+      lngs.push(feederBounds[0][1], feederBounds[1][1]);
+    }
+
+    const combinedBounds: [[number, number], [number, number]] = [
+      [Math.min(...lats), Math.min(...lngs)],
+      [Math.max(...lats), Math.max(...lngs)],
+    ];
+
+    console.log('📍 Zooming map to fit measures:', combinedBounds);
+
+    setTimeout(() => {
+      mapRef.current?.fitBounds(combinedBounds, {
+        paddingTopLeft: [80, 80],
+        paddingBottomRight: [80, 80],
+        animate: true,
+      });
+    }, 600);
+  }, [measures, feederBounds]);
+
   const getActionBadge = (action: string) => {
     if (action === "Immediate Action") {
       return <Badge className="bg-destructive hover:bg-destructive/90 text-white">{t('immediateAction')}</Badge>;
@@ -465,7 +529,7 @@ export default function MeasureDetails() {
                             <TableHead>{t('dateLabel')}</TableHead>
                             <TableHead>{t('actionLabel')}</TableHead>
                             <TableHead>{t('hotspot')}</TableHead>
-                            <TableHead>{t('reprocessedAt')}</TableHead>
+
                             <TableHead className="text-right">{t('actionColumn')}</TableHead>
                           </TableRow>
                         </TableHeader>
@@ -501,7 +565,7 @@ export default function MeasureDetails() {
                                 <TableCell>
                                   {measure.temp1_c ? measure.temp1_c.toFixed(2) : '-'}
                                 </TableCell>
-                                <TableCell>-</TableCell>
+
                                 <TableCell className="text-right">
                                   <Button size="sm" onClick={() => navigate(`/measure-image/${measure.id_unico}`)}>
                                     {t('open')}
@@ -596,7 +660,48 @@ export default function MeasureDetails() {
                             } as any)}
                           />
                         )}
+
+                        {/* Render measure markers if measures layer is selected */}
+                        {selectedLayers.includes("measures") && measures.map((measure) => {
+                          if (!measure.latitude || !measure.longitude) return null;
+                          const isHotspot = measure.temp1_c !== null && measure.temp1_c !== undefined;
+                          const pinColor = isHotspot ? "#ef4444" : "#3b82f6";
+                          return (
+                            <Marker
+                              key={measure.id_unico}
+                              position={[measure.latitude, measure.longitude]}
+                              icon={createPinIcon(pinColor)}
+                            >
+                              <Popup>
+                                <div className="text-sm">
+                                  <p><strong>ID:</strong> {measure.id_unico?.substring(0, 8)}...</p>
+                                  {isHotspot && <p><strong>Hotspot:</strong> {measure.temp1_c?.toFixed(2)}°C</p>}
+                                  <p><strong>Location:</strong> {measure.localizacao || "-"}</p>
+                                </div>
+                              </Popup>
+                            </Marker>
+                          );
+                        })}
                       </MapContainer>
+
+                      {/* Map Legend - Bottom Left */}
+                      <div className="absolute bottom-4 left-4 bg-card/95 rounded-md shadow-md p-3 space-y-2 text-sm z-[1000] border">
+                        <Label className="text-xs font-semibold">Legend</Label>
+                        <div className="space-y-2 mt-2">
+                          <div className="flex items-center gap-2">
+                            <svg width="16" height="20" viewBox="0 0 24 32"><path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 20 12 20s12-11 12-20C24 5.4 18.6 0 12 0z" fill="#ef4444" stroke="white" strokeWidth="1.5" /><circle cx="12" cy="11" r="5" fill="white" opacity="0.9" /><circle cx="12" cy="11" r="3" fill="#ef4444" /></svg>
+                            <span className="text-xs">Hotspot (Temperature detected)</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <svg width="14" height="18" viewBox="0 0 24 32"><path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 20 12 20s12-11 12-20C24 5.4 18.6 0 12 0z" fill="#3b82f6" stroke="white" strokeWidth="1.5" /><circle cx="12" cy="11" r="5" fill="white" opacity="0.9" /><circle cx="12" cy="11" r="3" fill="#3b82f6" /></svg>
+                            <span className="text-xs">Measure (No temperature)</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-4 h-1 bg-[#0d6efd] rounded"></div>
+                            <span className="text-xs">Feeder Line</span>
+                          </div>
+                        </div>
+                      </div>
 
                       {/* Map Controls Panel */}
                       <div className="absolute top-4 right-4 bg-card/95 rounded-md shadow-md p-3 space-y-3 text-sm w-48 z-[1000] border">

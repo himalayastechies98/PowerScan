@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { getColorForValue, PaletteName } from '@/utils/palettes';
-import { ZoomIn, ZoomOut, RotateCcw, Crosshair } from 'lucide-react';
+import { ZoomIn, ZoomOut, RotateCcw, Crosshair, MapPin } from 'lucide-react';
 
 export interface ThermalData {
     width: number;
@@ -16,12 +16,24 @@ export interface TempHoverInfo {
     temperature: number;
 }
 
+export interface Marker {
+    id: string;
+    x: number;
+    y: number;
+    temperature: number;
+    elementType: string;
+    finalAction: string;
+}
+
 interface ThermalCanvasProps {
     thermalData: ThermalData | null;
     palette: PaletteName;
     minRange: number;
     maxRange: number;
     onHoverTemp: (info: TempHoverInfo | null) => void;
+    markers?: Marker[];
+    onAddMarker?: (marker: Omit<Marker, 'id' | 'elementType' | 'finalAction'>) => void;
+    isAddingMarker?: boolean;
 }
 
 export function ThermalCanvas({
@@ -30,6 +42,9 @@ export function ThermalCanvas({
     minRange,
     maxRange,
     onHoverTemp,
+    markers = [],
+    onAddMarker,
+    isAddingMarker = false,
 }: ThermalCanvasProps) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -117,7 +132,21 @@ export function ThermalCanvas({
         setIsHovered(true);
     }, []);
 
-    // Fit image to container - fixed 52% initial scale, centered
+    // Handle click to add marker
+    const handleClick = useCallback((e: React.MouseEvent) => {
+        if (!isAddingMarker || !onAddMarker) return;
+
+        const tempInfo = getTemperatureAtPosition(e.clientX, e.clientY);
+        if (tempInfo) {
+            onAddMarker({
+                x: tempInfo.x,
+                y: tempInfo.y,
+                temperature: tempInfo.temperature,
+            });
+        }
+    }, [isAddingMarker, onAddMarker, getTemperatureAtPosition]);
+
+    // Fit image to container - calculate scale to fit while maintaining aspect ratio
     const centerImage = useCallback(() => {
         if (thermalData && containerRef.current) {
             const container = containerRef.current;
@@ -125,8 +154,16 @@ export function ThermalCanvas({
             const containerHeight = container.clientHeight;
 
             if (containerWidth > 0 && containerHeight > 0) {
-                // Fixed 52% initial scale
-                const fitScale = 0.52;
+                // Calculate scale to fit image within container (with padding)
+                const padding = 40; // pixels padding on each side
+                const availableWidth = containerWidth - padding * 2;
+                const availableHeight = containerHeight - padding * 2;
+
+                const scaleX = availableWidth / thermalData.width;
+                const scaleY = availableHeight / thermalData.height;
+
+                // Use the smaller scale to ensure image fits in both dimensions
+                const fitScale = Math.min(scaleX, scaleY, 1); // Cap at 100%
 
                 const scaledWidth = thermalData.width * fitScale;
                 const scaledHeight = thermalData.height * fitScale;
@@ -187,10 +224,11 @@ export function ThermalCanvas({
     return (
         <div
             ref={containerRef}
-            className="w-full h-full relative overflow-hidden bg-muted cursor-crosshair"
+            className={`w-full h-full relative overflow-hidden bg-muted ${isAddingMarker ? 'cursor-cell' : 'cursor-crosshair'}`}
             onMouseMove={handleMouseMove}
             onMouseLeave={handleMouseLeave}
             onMouseEnter={handleMouseEnter}
+            onClick={handleClick}
         >
             <canvas
                 ref={canvasRef}
@@ -205,10 +243,65 @@ export function ThermalCanvas({
             {/* Measuring indicator */}
             {isHovered && (
                 <div className="absolute top-3 right-3 flex items-center gap-1.5 px-2 py-1 bg-background/90 backdrop-blur-sm rounded border shadow-sm">
-                    <Crosshair className="w-3 h-3 text-green-600" />
-                    <span className="text-[10px] font-medium uppercase tracking-wide">Measuring</span>
+                    {isAddingMarker ? (
+                        <>
+                            <MapPin className="w-3 h-3 text-red-500" />
+                            <span className="text-[10px] font-medium uppercase tracking-wide text-red-600">Click to place marker</span>
+                        </>
+                    ) : (
+                        <>
+                            <Crosshair className="w-3 h-3 text-green-600" />
+                            <span className="text-[10px] font-medium uppercase tracking-wide">Measuring</span>
+                        </>
+                    )}
                 </div>
             )}
+
+            {/* Render markers */}
+            {markers.map((marker, index) => {
+                const screenX = marker.x * scale + offset.x;
+                const screenY = marker.y * scale + offset.y;
+                return (
+                    <div
+                        key={marker.id}
+                        className="absolute z-10 cursor-pointer transition-transform hover:scale-110"
+                        style={{
+                            left: screenX,
+                            top: screenY,
+                            transform: 'translate(-50%, -100%)',
+                            filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.5))',
+                        }}
+                        title={`${marker.elementType || 'Point'}: ${marker.temperature.toFixed(1)}°C`}
+                    >
+                        <svg width="18" height="24" viewBox="0 0 18 24" fill="none">
+                            <defs>
+                                <linearGradient id={`pin-grad-${index}`} x1="9" y1="0" x2="9" y2="24" gradientUnits="userSpaceOnUse">
+                                    <stop stopColor="#ef4444" />
+                                    <stop offset="1" stopColor="#b91c1c" />
+                                </linearGradient>
+                            </defs>
+                            <path
+                                d="M9 0C4.03 0 0 4.03 0 9c0 5.25 9 15 9 15s9-9.75 9-15c0-4.97-4.03-9-9-9z"
+                                fill={`url(#pin-grad-${index})`}
+                                stroke="white"
+                                strokeWidth="1.5"
+                            />
+                            <circle cx="9" cy="9" r="5" fill="white" />
+                            <text
+                                x="9"
+                                y="12"
+                                textAnchor="middle"
+                                fill="#b91c1c"
+                                fontSize="8"
+                                fontWeight="700"
+                                fontFamily="system-ui, -apple-system, sans-serif"
+                            >
+                                {index + 1}
+                            </text>
+                        </svg>
+                    </div>
+                );
+            })}
 
             {/* Zoom Controls */}
             <div

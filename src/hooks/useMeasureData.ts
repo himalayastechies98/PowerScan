@@ -30,6 +30,7 @@ export interface UseMeasureDataReturn {
     listRef: React.RefObject<HTMLDivElement>;
     handleScroll: () => void;
     inspectionId: string | null;
+    updateCurrentMeasure: (updatedMeasure: Measure) => void;
 }
 
 export function useMeasureData(measureId: string | undefined): UseMeasureDataReturn {
@@ -204,6 +205,14 @@ export function useMeasureData(measureId: string | undefined): UseMeasureDataRet
         }
     }, [loadingMore, hasMore, inspectionId, page]);
 
+    const updateCurrentMeasure = useCallback((updatedMeasure: Measure) => {
+        setCurrentMeasure(updatedMeasure);
+        // Also update the entry in allMeasures so the sidebar list reflects changes
+        setAllMeasures(prev => prev.map(m =>
+            m.id_unico === updatedMeasure.id_unico ? updatedMeasure : m
+        ));
+    }, []);
+
     return {
         currentMeasure,
         allMeasures,
@@ -213,6 +222,7 @@ export function useMeasureData(measureId: string | undefined): UseMeasureDataRet
         hasMore,
         listRef,
         handleScroll,
-        inspectionId
+        inspectionId,
+        updateCurrentMeasure
     };
 }

@@ -167,10 +167,10 @@ export default function UploadMeasures() {
               }
             }
 
-            // 2. Insert into Supabase (now includes image types)
+            // 2. Upsert into Supabase (merge with existing records on re-upload)
             const { error } = await supabase
               .from('inspection_measure')
-              .insert({
+              .upsert({
                 inspection_id: inspectionId,
                 registro_num: row.registroNum,
                 data_criacao: row.dataCriacao,
@@ -203,7 +203,7 @@ export default function UploadMeasures() {
                 vel_do_ar_na_inspecao_ms: row.velDoArNaInspecaoMs,
                 num_imagens: row.numImagens,
                 images: row.images, // Updated with types
-              });
+              }, { onConflict: 'inspection_id,registro_num' });
 
             if (error) {
               failedRows.push({

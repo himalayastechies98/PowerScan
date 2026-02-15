@@ -19,7 +19,7 @@ export function ImagePanel({ imageSrc, altText, placeholderText, variant = "opti
 
     const isThermal = variant === "thermal";
 
-    // Fit image to container - fixed 52% initial scale, centered (same as ThermalCanvas)
+    // Fit image to container - calculate scale to fit while maintaining aspect ratio
     const centerImage = useCallback(() => {
         if (!containerRef.current || imageNaturalSize.width === 0) return;
 
@@ -29,8 +29,16 @@ export function ImagePanel({ imageSrc, altText, placeholderText, variant = "opti
 
         if (containerWidth === 0 || containerHeight === 0) return;
 
-        // Fixed 52% initial scale
-        const fitScale = 0.52;
+        // Calculate scale to fit image within container (with padding)
+        const padding = 40; // pixels padding on each side
+        const availableWidth = containerWidth - padding * 2;
+        const availableHeight = containerHeight - padding * 2;
+
+        const scaleX = availableWidth / imageNaturalSize.width;
+        const scaleY = availableHeight / imageNaturalSize.height;
+
+        // Use the smaller scale to ensure image fits in both dimensions
+        const fitScale = Math.min(scaleX, scaleY, 1); // Cap at 100%
 
         const scaledWidth = imageNaturalSize.width * fitScale;
         const scaledHeight = imageNaturalSize.height * fitScale;

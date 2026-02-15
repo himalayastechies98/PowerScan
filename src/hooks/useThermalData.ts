@@ -1,16 +1,16 @@
 import { useState, useCallback } from 'react';
 import { ThermalData } from '@/components/measure-image/ThermalCanvas';
 
-// Using the port we found in the user logs (10000)
-// In a real app this should be an env var
-const THERMAL_API_URL = 'https://powerscan-backend.onrender.com/api/thermal';
+// Use environment variable, fallback to local for development
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const THERMAL_API_URL = `${API_BASE_URL}/api/thermal`;
 
 export function useThermalData() {
     const [thermalData, setThermalData] = useState<ThermalData | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const fetchThermalData = useCallback(async (imageUrl: string) => {
+    const fetchThermalData = useCallback(async (imageUrl: string, maxTemp?: number) => {
         if (!imageUrl) return;
 
         setLoading(true);
@@ -31,8 +31,14 @@ export function useThermalData() {
             const file = new File([blob], "thermal.jpg", { type: "image/jpeg" });
             formData.append('file', file);
 
-            // 3. Send to Thermal API
-            const response = await fetch(THERMAL_API_URL, {
+            // 3. Build API URL with optional max_temp query param
+            let apiUrl = THERMAL_API_URL;
+            if (maxTemp !== undefined && maxTemp !== null) {
+                apiUrl += `?max_temp=${maxTemp}`;
+            }
+
+            // 4. Send to Thermal API
+            const response = await fetch(apiUrl, {
                 method: 'POST',
                 body: formData,
             });

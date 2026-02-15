@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, Thermometer, Camera, Palette, Maximize2, Download } from "lucide-react";
+import { ChevronDown, Thermometer, Camera, Palette, Maximize2, Download, Settings2, MapPin } from "lucide-react";
 import { ImagePanel } from "./ImagePanel";
-import { ThermalCanvas, TempHoverInfo } from "./ThermalCanvas";
+import { ThermalCanvas, TempHoverInfo, Marker } from "./ThermalCanvas";
 import { useThermalData } from "@/hooks/useThermalData";
 import { PALETTES, PaletteName } from "@/utils/palettes";
 
@@ -54,9 +54,13 @@ interface ImagesSectionProps {
     isOpen: boolean;
     onOpenChange: (open: boolean) => void;
     measureImages: MeasureImage[];
+    markers?: Marker[];
+    onMarkersChange?: (markers: Marker[]) => void;
+    maxTemperature?: number | null; // temp1_c from measure
+    minTemperature?: number | null; // temp_minima_c from measure
 }
 
-export function ImagesSection({ isOpen, onOpenChange, measureImages }: ImagesSectionProps) {
+export function ImagesSection({ isOpen, onOpenChange, measureImages, markers: externalMarkers, onMarkersChange, maxTemperature, minTemperature }: ImagesSectionProps) {
     // Track previous images to detect changes
     const prevImagesRef = useRef<string>("");
     const [isTransitioning, setIsTransitioning] = useState(false);
@@ -81,6 +85,34 @@ export function ImagesSection({ isOpen, onOpenChange, measureImages }: ImagesSec
     const [palette, setPalette] = useState<PaletteName>('iron');
     const [hoverInfo, setHoverInfo] = useState<TempHoverInfo | null>(null);
     const [dropdownOpen, setDropdownOpen] = useState(false);
+    const [manualMinTemp, setManualMinTemp] = useState<number | null>(null);
+    const [manualMaxTemp, setManualMaxTemp] = useState<number | null>(null);
+    const [isEditingRange, setIsEditingRange] = useState(false);
+    const [markers, setMarkersInternal] = useState<Marker[]>([]);
+    const [isAddingMarker, setIsAddingMarker] = useState(false);
+
+    // Use external markers if provided, otherwise use internal state
+    const currentMarkers = externalMarkers ?? markers;
+    const setMarkers = (newMarkers: Marker[] | ((prev: Marker[]) => Marker[])) => {
+        const resolvedMarkers = typeof newMarkers === 'function' ? newMarkers(currentMarkers) : newMarkers;
+        if (onMarkersChange) {
+            onMarkersChange(resolvedMarkers);
+        } else {
+            setMarkersInternal(resolvedMarkers);
+        }
+    };
+
+    // Handle adding a new marker
+    const handleAddMarker = (markerData: Omit<Marker, 'id' | 'elementType' | 'finalAction'>) => {
+        const newMarker: Marker = {
+            ...markerData,
+            id: `marker-${Date.now()}`,
+            elementType: 'Electrical Asset',
+            finalAction: '',
+        };
+        setMarkers([...currentMarkers, newMarker]);
+        setIsAddingMarker(false); // Exit marker mode after placing
+    };
 
     // Detect when measure images change and trigger smooth transition
     useEffect(() => {
@@ -105,12 +137,23 @@ export function ImagesSection({ isOpen, onOpenChange, measureImages }: ImagesSec
 
     useEffect(() => {
         if (thermalImageSrc) {
-            fetchThermalData(thermalImageSrc);
+            // Pass the actual max temperature from measure for proper calibration
+            fetchThermalData(thermalImageSrc, maxTemperature ?? undefined);
         }
-    }, [thermalImageSrc, fetchThermalData]);
+    }, [thermalImageSrc, fetchThermalData, maxTemperature]);
 
-    const minTemp = thermalData?.minTemp ?? 0;
-    const maxTemp = thermalData?.maxTemp ?? 100;
+    // Use manual values if set, otherwise use data from thermal API
+    const minTemp = manualMinTemp ?? thermalData?.minTemp ?? 20;
+    const maxTemp = manualMaxTemp ?? thermalData?.maxTemp ?? 100;
+
+    // Reset manual values when thermal data or saved temps change
+    useEffect(() => {
+        if (thermalData) {
+            // If saved temps exist, use them as the initial range
+            setManualMinTemp(minTemperature != null ? Number(minTemperature) : null);
+            setManualMaxTemp(maxTemperature != null ? Number(maxTemperature) : null);
+        }
+    }, [thermalData?.minTemp, thermalData?.maxTemp, maxTemperature, minTemperature]);
 
     return (
         <Collapsible open={isOpen} onOpenChange={onOpenChange}>
@@ -125,7 +168,7 @@ export function ImagesSection({ isOpen, onOpenChange, measureImages }: ImagesSec
                 </CollapsibleTrigger>
 
                 <CollapsibleContent>
-                    <CardContent className="p-0">
+                    <CardContent className="p-6">
                         {/* Main Toolbar */}
                         <div className="bg-muted/50 border-b px-4 py-2.5">
                             <div className="flex items-center justify-between">
@@ -214,6 +257,24 @@ export function ImagesSection({ isOpen, onOpenChange, measureImages }: ImagesSec
 
                                     <div className="w-px h-6 bg-border" />
 
+                                    {/* Add Marker Button */}
+                                    <button
+                                        onClick={() => setIsAddingMarker(!isAddingMarker)}
+                                        className={`h-8 px-3 flex items-center gap-2 rounded-lg transition-colors ${isAddingMarker ? 'bg-red-500 text-white hover:bg-red-600' : 'hover:bg-muted text-muted-foreground hover:text-foreground'}`}
+                                        title="Add marker to thermal image"
+                                    >
+                                        <MapPin className="w-4 h-4" />
+                                        <span className="text-sm">{isAddingMarker ? 'Cancel' : 'Add Marker'}</span>
+                                    </button>
+
+                                    {currentMarkers.length > 0 && (
+                                        <span className="text-xs text-muted-foreground">
+                                            {currentMarkers.length} marker{currentMarkers.length > 1 ? 's' : ''}
+                                        </span>
+                                    )}
+
+                                    <div className="w-px h-6 bg-border" />
+
                                     <button className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors" title="Fullscreen">
                                         <Maximize2 className="w-4 h-4" />
                                     </button>
@@ -272,6 +333,9 @@ export function ImagesSection({ isOpen, onOpenChange, measureImages }: ImagesSec
                                             minRange={minTemp}
                                             maxRange={maxTemp}
                                             onHoverTemp={setHoverInfo}
+                                            markers={currentMarkers}
+                                            onAddMarker={handleAddMarker}
+                                            isAddingMarker={isAddingMarker}
                                         />
                                     ) : (
                                         <ImagePanel
@@ -307,44 +371,136 @@ export function ImagesSection({ isOpen, onOpenChange, measureImages }: ImagesSec
                             </div>
                         </div>
 
-                        {/* Temperature Color Scale - Footer */}
+                        {/* Temperature Color Scale - Footer with Range Slider */}
                         {thermalData && (
                             <div className="bg-muted/50 border-t px-4 py-3">
-                                <div className="flex items-center gap-4">
-                                    <div className="flex items-center gap-2 text-muted-foreground">
-                                        <Palette className="w-4 h-4" />
-                                        <span className="text-xs font-medium uppercase tracking-wide">Scale</span>
-                                    </div>
-
-                                    <div className="flex-1 flex items-center gap-3">
-                                        <span className="text-sm font-mono font-semibold text-blue-600 w-14 text-right">
-                                            {minTemp.toFixed(1)}°
-                                        </span>
-
-                                        <div className="flex-1 relative h-4">
-                                            <div
-                                                className="absolute inset-0 rounded-sm border"
-                                                style={{
-                                                    background: palette === 'iron'
-                                                        ? 'linear-gradient(to right, #1a0a2e, #4c1130, #7f1d1d, #dc2626, #f59e0b, #fde047)'
-                                                        : palette === 'rainbow'
-                                                            ? 'linear-gradient(to right, #1e3a8a, #0891b2, #16a34a, #facc15, #dc2626)'
-                                                            : palette === 'whiteHot'
-                                                                ? 'linear-gradient(to right, #020617, #334155, #94a3b8, #e2e8f0, #f8fafc)'
-                                                                : 'linear-gradient(to right, #f8fafc, #e2e8f0, #94a3b8, #334155, #020617)'
-                                                }}
-                                            />
-                                            {/* Temperature markers */}
-                                            <div className="absolute inset-x-0 -bottom-4 flex justify-between px-1">
-                                                <span className="text-[9px] text-blue-600/60">Cold</span>
-                                                <span className="text-[9px] text-muted-foreground">{((minTemp + maxTemp) / 2).toFixed(0)}°</span>
-                                                <span className="text-[9px] text-red-600/60">Hot</span>
-                                            </div>
+                                <div className="flex flex-col gap-2">
+                                    {/* Header row with Scale label and settings */}
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2 text-muted-foreground">
+                                            <Palette className="w-4 h-4" />
+                                            <span className="text-xs font-medium uppercase tracking-wide">Scale</span>
                                         </div>
 
-                                        <span className="text-sm font-mono font-semibold text-red-600 w-14">
-                                            {maxTemp.toFixed(1)}°
-                                        </span>
+                                        {/* Reset button */}
+                                        {(manualMinTemp !== null || manualMaxTemp !== null) && (
+                                            <button
+                                                onClick={() => {
+                                                    setManualMinTemp(null);
+                                                    setManualMaxTemp(null);
+                                                }}
+                                                className="text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded hover:bg-background"
+                                            >
+                                                Reset
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {/* Temperature labels above scale bar */}
+                                    <div className="flex items-center justify-between text-xs font-mono">
+                                        {/* Min temp label */}
+                                        <div className="bg-blue-100 dark:bg-blue-900/30 px-2 py-0.5 rounded">
+                                            <span className="font-semibold text-blue-600">{minTemp.toFixed(1)}°C</span>
+                                        </div>
+
+                                        {/* Mid temp label */}
+                                        <div className="bg-orange-100 dark:bg-orange-900/30 px-2 py-0.5 rounded">
+                                            <span className="font-semibold text-orange-600">{((minTemp + maxTemp) / 2).toFixed(1)}°C</span>
+                                        </div>
+
+                                        {/* Max temp label */}
+                                        <div className="bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded">
+                                            <span className="font-semibold text-gray-700 dark:text-gray-300">{maxTemp.toFixed(1)}°C</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Range Slider with Color Gradient */}
+                                    <div className="relative h-8 select-none">
+                                        {/* Full gradient background (dimmed) */}
+                                        <div
+                                            className="absolute inset-x-0 top-1 h-5 rounded-sm border opacity-40"
+                                            style={{
+                                                background: palette === 'iron'
+                                                    ? 'linear-gradient(to right, #1a0a2e, #4c1130, #7f1d1d, #dc2626, #f59e0b, #fde047)'
+                                                    : palette === 'rainbow'
+                                                        ? 'linear-gradient(to right, #1e3a8a, #0891b2, #16a34a, #facc15, #dc2626)'
+                                                        : palette === 'whiteHot'
+                                                            ? 'linear-gradient(to right, #020617, #334155, #94a3b8, #e2e8f0, #f8fafc)'
+                                                            : 'linear-gradient(to right, #f8fafc, #e2e8f0, #94a3b8, #334155, #020617)'
+                                            }}
+                                        />
+
+                                        {/* Selected range (bright) */}
+                                        {(() => {
+                                            const dataMin = thermalData?.minTemp ?? 0;
+                                            const dataMax = thermalData?.maxTemp ?? 100;
+                                            const range = dataMax - dataMin;
+                                            const leftPercent = range > 0 ? ((minTemp - dataMin) / range) * 100 : 0;
+                                            const rightPercent = range > 0 ? ((maxTemp - dataMin) / range) * 100 : 100;
+
+                                            return (
+                                                <div
+                                                    className="absolute top-1 h-5 rounded-sm border-2 border-white shadow-lg"
+                                                    style={{
+                                                        left: `${Math.max(0, leftPercent)}%`,
+                                                        right: `${Math.max(0, 100 - rightPercent)}%`,
+                                                        background: palette === 'iron'
+                                                            ? 'linear-gradient(to right, #1a0a2e, #4c1130, #7f1d1d, #dc2626, #f59e0b, #fde047)'
+                                                            : palette === 'rainbow'
+                                                                ? 'linear-gradient(to right, #1e3a8a, #0891b2, #16a34a, #facc15, #dc2626)'
+                                                                : palette === 'whiteHot'
+                                                                    ? 'linear-gradient(to right, #020617, #334155, #94a3b8, #e2e8f0, #f8fafc)'
+                                                                    : 'linear-gradient(to right, #f8fafc, #e2e8f0, #94a3b8, #334155, #020617)'
+                                                    }}
+                                                />
+                                            );
+                                        })()}
+
+                                        {/* Dual Range Inputs */}
+                                        <input
+                                            type="range"
+                                            min={thermalData?.minTemp ?? 0}
+                                            max={thermalData?.maxTemp ?? 100}
+                                            step="0.1"
+                                            value={minTemp}
+                                            onChange={(e) => {
+                                                const newMin = parseFloat(e.target.value);
+                                                if (newMin < maxTemp - 1) {
+                                                    setManualMinTemp(newMin);
+                                                }
+                                            }}
+                                            className="absolute inset-x-0 top-0 h-8 w-full appearance-none bg-transparent pointer-events-none [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-8 [&::-webkit-slider-thumb]:bg-blue-500 [&::-webkit-slider-thumb]:rounded [&::-webkit-slider-thumb]:cursor-ew-resize [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:shadow-lg [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-8 [&::-moz-range-thumb]:bg-blue-500 [&::-moz-range-thumb]:rounded [&::-moz-range-thumb]:cursor-ew-resize [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white [&::-moz-range-thumb]:shadow-lg"
+                                            style={{ zIndex: minTemp > (thermalData?.maxTemp ?? 100) - 10 ? 5 : 3 }}
+                                        />
+                                        <input
+                                            type="range"
+                                            min={thermalData?.minTemp ?? 0}
+                                            max={thermalData?.maxTemp ?? 100}
+                                            step="0.1"
+                                            value={maxTemp}
+                                            onChange={(e) => {
+                                                const newMax = parseFloat(e.target.value);
+                                                if (newMax > minTemp + 1) {
+                                                    setManualMaxTemp(newMax);
+                                                }
+                                            }}
+                                            className="absolute inset-x-0 top-0 h-8 w-full appearance-none bg-transparent pointer-events-none [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-8 [&::-webkit-slider-thumb]:bg-red-500 [&::-webkit-slider-thumb]:rounded [&::-webkit-slider-thumb]:cursor-ew-resize [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:shadow-lg [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-8 [&::-moz-range-thumb]:bg-red-500 [&::-moz-range-thumb]:rounded [&::-moz-range-thumb]:cursor-ew-resize [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white [&::-moz-range-thumb]:shadow-lg"
+                                            style={{ zIndex: 4 }}
+                                        />
+                                    </div>
+
+                                    {/* Temperature tick values below the bar */}
+                                    <div className="flex justify-between text-[10px] font-mono text-muted-foreground">
+                                        {Array.from({ length: 11 }).map((_, i) => {
+                                            const dataMin = thermalData?.minTemp ?? 0;
+                                            const dataMax = thermalData?.maxTemp ?? 100;
+                                            const temp = dataMin + (dataMax - dataMin) * (i / 10);
+                                            return (
+                                                <span key={i} className="w-8 text-center">
+                                                    {temp.toFixed(temp < 10 ? 1 : 0)}
+                                                </span>
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             </div>
@@ -352,6 +508,6 @@ export function ImagesSection({ isOpen, onOpenChange, measureImages }: ImagesSec
                     </CardContent>
                 </CollapsibleContent>
             </Card>
-        </Collapsible>
+        </Collapsible >
     );
 }

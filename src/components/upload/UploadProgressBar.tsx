@@ -14,10 +14,10 @@ export function UploadProgressBar({ isVisible, currentProcessing, progress }: Up
         <Card className="p-6">
             <div className="space-y-3">
                 <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium text-gray-700">
+                    <span className="text-sm font-medium text-foreground">
                         {currentProcessing}
                     </span>
-                    <span className="text-sm text-gray-500">{progress}%</span>
+                    <span className="text-sm font-semibold text-primary">{progress}%</span>
                 </div>
                 <Progress value={progress} className="h-2" />
             </div>

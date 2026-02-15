@@ -158,7 +158,7 @@ export default function InspectionMeasuresTable() {
                                                 <TableHead>DATE</TableHead>
                                                 <TableHead>ACTION</TableHead>
                                                 <TableHead>HOTSPOT</TableHead>
-                                                <TableHead>REPROCESSED AT</TableHead>
+
                                                 <TableHead>Actions</TableHead>
                                             </TableRow>
                                         </TableHeader>
@@ -185,7 +185,7 @@ export default function InspectionMeasuresTable() {
                                                     <TableCell>
                                                         {measure.temp1_c ? measure.temp1_c.toFixed(2) : '-'}
                                                     </TableCell>
-                                                    <TableCell>-</TableCell>
+
                                                     <TableCell>
                                                         <Button
                                                             size="sm"

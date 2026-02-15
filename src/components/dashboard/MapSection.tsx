@@ -3,9 +3,32 @@ import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Layers, Maximize2, MoreVertical, Loader2, MapPin } from "lucide-react";
-import { MapContainer, TileLayer, CircleMarker, Popup } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useDashboardData } from "@/hooks/useDashboardData";
+
+// Create a custom SVG pin icon for map markers
+function createPinIcon(color: string, size: number = 30) {
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size * 1.3}" viewBox="0 0 24 32">
+      <defs>
+        <filter id="shadow" x="-20%" y="-10%" width="140%" height="140%">
+          <feDropShadow dx="0" dy="1" stdDeviation="1.5" flood-color="#00000040"/>
+        </filter>
+      </defs>
+      <path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 20 12 20s12-11 12-20C24 5.4 18.6 0 12 0z" fill="${color}" filter="url(#shadow)" stroke="white" stroke-width="1.5"/>
+      <circle cx="12" cy="11" r="5" fill="white" opacity="0.9"/>
+      <circle cx="12" cy="11" r="3" fill="${color}"/>
+    </svg>`;
+  return L.divIcon({
+    html: svg,
+    className: '',
+    iconSize: [size, size * 1.3],
+    iconAnchor: [size / 2, size * 1.3],
+    popupAnchor: [0, -(size * 1.3)],
+  });
+}
 
 const getMarkerColor = (status: string) => {
   switch (status) {
@@ -80,15 +103,15 @@ export function MapSection() {
         {/* Legend */}
         <div className="flex flex-wrap gap-4 mb-4">
           <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-red-500" />
+            <svg width="14" height="18" viewBox="0 0 24 32"><path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 20 12 20s12-11 12-20C24 5.4 18.6 0 12 0z" fill="#e53935" stroke="white" strokeWidth="1.5" /><circle cx="12" cy="11" r="5" fill="white" opacity="0.9" /><circle cx="12" cy="11" r="3" fill="#e53935" /></svg>
             <span className="text-sm text-muted-foreground">{t('immediateAction')}</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-orange-500" />
+            <svg width="14" height="18" viewBox="0 0 24 32"><path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 20 12 20s12-11 12-20C24 5.4 18.6 0 12 0z" fill="#ffa000" stroke="white" strokeWidth="1.5" /><circle cx="12" cy="11" r="5" fill="white" opacity="0.9" /><circle cx="12" cy="11" r="3" fill="#ffa000" /></svg>
             <span className="text-sm text-muted-foreground">{t('scheduledAction')}</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-green-500" />
+            <svg width="14" height="18" viewBox="0 0 24 32"><path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 20 12 20s12-11 12-20C24 5.4 18.6 0 12 0z" fill="#43a047" stroke="white" strokeWidth="1.5" /><circle cx="12" cy="11" r="5" fill="white" opacity="0.9" /><circle cx="12" cy="11" r="3" fill="#43a047" /></svg>
             <span className="text-sm text-muted-foreground">{t('noAction')}</span>
           </div>
         </div>
@@ -113,17 +136,10 @@ export function MapSection() {
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
               />
               {mapLocations.map((loc, idx) => (
-                <CircleMarker
+                <Marker
                   key={idx}
-                  center={[loc.lat, loc.lng]}
-                  pathOptions={{
-                    fillColor: getMarkerColor(loc.status),
-                    color: "#fff",
-                    weight: 2,
-                    opacity: 1,
-                    fillOpacity: 0.8,
-                  }}
-                  radius={10}
+                  position={[loc.lat, loc.lng]}
+                  icon={createPinIcon(getMarkerColor(loc.status))}
                 >
                   <Popup>
                     <div className="text-sm min-w-[180px]">
@@ -149,7 +165,7 @@ export function MapSection() {
                       </div>
                     </div>
                   </Popup>
-                </CircleMarker>
+                </Marker>
               ))}
             </MapContainer>
           )}
