@@ -1,4 +1,4 @@
-import { ChartBar as BarChart3, Chrome as Home, FileText, Map, Settings, Users, X, Upload, CircleUser as UserCircle, LogOut, ChevronDown, ChevronRight, Zap, Radio, Box, Lightbulb, Car, Activity, Wrench, Plug, Wifi, Bell } from "lucide-react";
+import { ChartBar as BarChart3, Chrome as Home, FileText, Map, Settings, Users, X, Upload, CircleUser as UserCircle, LogOut, ChevronDown, ChevronRight, Zap, Radio, Box, Lightbulb, Car, Activity, Wrench, Plug, Wifi } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth } from "@/contexts/AuthContext";
@@ -103,7 +103,6 @@ export function Sidebar({ isOpen, onClose, onOpenProfile }: SidebarProps) {
                 { label: t('actions'), path: "/system/actions", icon: Activity },
                 { label: t('methods'), path: "/system/methods", icon: Wrench },
                 { label: t('feeders'), path: "/feeders", icon: Plug },
-                { label: t('alarms'), path: "/system/alarms", icon: Bell },
               ]
             },
             { icon: Users, label: t('clients'), path: "/clients" },

@@ -51,13 +51,37 @@ export function TopActionBar({ inspectionId, measure, measureImages = [] }: TopA
                 acao: action.final_action || '-'
             }));
 
+            // Reverse-geocode lat/lon to get a human-readable address (same as InformationSection)
+            let resolvedAddress = measure.localizacao || null;
+            if (measure.latitude && measure.longitude) {
+                try {
+                    const geoRes = await fetch(
+                        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${measure.latitude}&lon=${measure.longitude}&zoom=18&addressdetails=1`,
+                        {
+                            headers: {
+                                'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
+                                'User-Agent': 'PowerScan/1.0'
+                            }
+                        }
+                    );
+                    if (geoRes.ok) {
+                        const geoData = await geoRes.json();
+                        if (geoData.display_name) {
+                            resolvedAddress = geoData.display_name;
+                        }
+                    }
+                } catch {
+                    // Silently fall back to raw localizacao value
+                }
+            }
+
             // Prepare request body matching the API schema
             const requestBody = {
                 measure_data: {
                     id_unico: measure.id_unico,
                     inspection_id: measure.inspection_id,
                     registro_num: measure.registro_num,
-                    localizacao: measure.localizacao,
+                    localizacao: resolvedAddress,
                     latitude: measure.latitude,
                     longitude: measure.longitude,
                     temp1_c: measure.temp1_c,
@@ -115,6 +139,7 @@ export function TopActionBar({ inspectionId, measure, measureImages = [] }: TopA
             setIsGeneratingPDF(false);
         }
     };
+
 
     return (
         <div className="flex items-center justify-between bg-muted/30 p-2.5 rounded-lg border">

@@ -97,6 +97,7 @@ export default function MeasureDetails() {
   const [feederLength, setFeederLength] = useState<number>(0);
   const [measures, setMeasures] = useState<any[]>([]);
   const [isLoadingMeasures, setIsLoadingMeasures] = useState(false);
+  const [measureActionsMap, setMeasureActionsMap] = useState<Map<string, string>>(new Map());
 
   // Fetch inspection measures
   useEffect(() => {
@@ -122,6 +123,29 @@ export default function MeasureDetails() {
       }
 
       setMeasures(data || []);
+
+      // Fetch final actions for all these measures in one query
+      if (data && data.length > 0) {
+        const measureIds = data.map((m: any) => m.id_unico);
+        const { data: actions } = await supabase
+          .from('measure_actions')
+          .select('measure_id, final_action')
+          .in('measure_id', measureIds)
+          .neq('final_action', '');
+
+        if (actions) {
+          // Priority: immediate > scheduled > (anything else ignored)
+          const priority: Record<string, number> = { immediate: 2, scheduled: 1 };
+          const map = new Map<string, string>();
+          actions.forEach((a: any) => {
+            const current = map.get(a.measure_id);
+            const currentPri = priority[current ?? ''] ?? 0;
+            const newPri = priority[a.final_action] ?? 0;
+            if (newPri > currentPri) map.set(a.measure_id, a.final_action);
+          });
+          setMeasureActionsMap(map);
+        }
+      }
 
       // Debug: Log measures with coordinates
       const measuresWithCoords = (data || []).filter((m: any) => m.latitude && m.longitude);
@@ -458,7 +482,9 @@ export default function MeasureDetails() {
                             </div>
                             <div className="flex justify-between items-center py-2 border-b border-border/50">
                               <span className="text-sm font-medium">{t('totalMeasures')}</span>
-                              <span className="text-sm text-muted-foreground">891</span>
+                              <span className="text-sm text-muted-foreground">
+                                {isLoadingMeasures ? '...' : measures.length}
+                              </span>
                             </div>
                             <div className="flex justify-between items-center py-2">
                               <span className="text-sm font-medium">{t('totalTime')}</span>
@@ -560,7 +586,12 @@ export default function MeasureDetails() {
                                   </div>
                                 </TableCell>
                                 <TableCell>
-                                  <Bell className="w-4 h-4 text-muted-foreground" />
+                                  {(() => {
+                                    const action = measureActionsMap.get(measure.id_unico);
+                                    if (action === 'immediate') return <Badge className="bg-destructive hover:bg-destructive/90 text-white text-xs">{t('immediateAction')}</Badge>;
+                                    if (action === 'scheduled') return <Badge className="bg-orange-500 hover:bg-orange-600 text-white text-xs">{t('scheduledAction')}</Badge>;
+                                    return <Bell className="w-4 h-4 text-muted-foreground" />;
+                                  })()}
                                 </TableCell>
                                 <TableCell>
                                   {measure.temp1_c ? measure.temp1_c.toFixed(2) : '-'}
@@ -669,8 +700,10 @@ export default function MeasureDetails() {
                           return (
                             <Marker
                               key={measure.id_unico}
-                              position={[measure.latitude, measure.longitude]}
-                              icon={createPinIcon(pinColor)}
+                              {...({
+                                position: [measure.latitude, measure.longitude],
+                                icon: createPinIcon(pinColor),
+                              } as any)}
                             >
                               <Popup>
                                 <div className="text-sm">

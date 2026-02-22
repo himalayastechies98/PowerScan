@@ -5,6 +5,8 @@ import { ChevronDown, Trash2, Save, Loader2 } from "lucide-react";
 import { Marker } from "./ThermalCanvas";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
+import { SearchableElementSelect } from "./SearchableElementSelect";
+import { SearchableActionSelect } from "./SearchableActionSelect";
 
 interface ActionsSectionProps {
     isOpen: boolean;
@@ -19,6 +21,26 @@ interface ActionsSectionProps {
 export function ActionsSection({ isOpen, onOpenChange, markers = [], onUpdateMarker, onDeleteMarker, measureId, onLoadMarkers }: ActionsSectionProps) {
     const [isSaving, setIsSaving] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [systemElements, setSystemElements] = useState<{ id: string; name: string }[]>([]);
+
+    // Fetch system elements from Supabase on mount
+    useEffect(() => {
+        const fetchSystemElements = async () => {
+            try {
+                const { data, error } = await supabase
+                    .from('elements')
+                    .select('id, name')
+                    .order('index', { ascending: true });
+
+                if (!error && data && data.length > 0) {
+                    setSystemElements(data.map((e: any) => ({ id: e.id, name: e.name })));
+                }
+            } catch (err) {
+                console.error('Error fetching system elements:', err);
+            }
+        };
+        fetchSystemElements();
+    }, []);
 
     // Load saved markers from DB on mount / when measureId changes
     useEffect(() => {
@@ -165,19 +187,11 @@ export function ActionsSection({ isOpen, onOpenChange, markers = [], onUpdateMar
                                                             </div>
                                                         </td>
                                                         <td className="py-2 px-3">
-                                                            <select
+                                                            <SearchableElementSelect
                                                                 value={marker.elementType}
-                                                                onChange={(e) => onUpdateMarker?.(marker.id, { elementType: e.target.value })}
-                                                                className="w-full h-8 px-2 text-sm bg-background border rounded focus:outline-none focus:ring-2 focus:ring-ring"
-                                                            >
-                                                                <option value="Electrical Asset">Electrical Asset</option>
-                                                                <option value="Transformer">Transformer</option>
-                                                                <option value="Connector">Connector</option>
-                                                                <option value="Insulator">Insulator</option>
-                                                                <option value="Switch">Switch</option>
-                                                                <option value="Cable Joint">Cable Joint</option>
-                                                                <option value="Other">Other</option>
-                                                            </select>
+                                                                onValueChange={(val) => onUpdateMarker?.(marker.id, { elementType: val })}
+                                                                elements={systemElements}
+                                                            />
                                                         </td>
                                                         <td className="py-2 px-3 font-mono text-xs text-muted-foreground">
                                                             [{marker.x}, {marker.y}]
@@ -188,17 +202,10 @@ export function ActionsSection({ isOpen, onOpenChange, markers = [], onUpdateMar
                                                             </span>
                                                         </td>
                                                         <td className="py-2 px-3">
-                                                            <select
+                                                            <SearchableActionSelect
                                                                 value={marker.finalAction}
-                                                                onChange={(e) => onUpdateMarker?.(marker.id, { finalAction: e.target.value })}
-                                                                className="w-full h-8 px-2 text-sm bg-background border rounded focus:outline-none focus:ring-2 focus:ring-ring"
-                                                            >
-                                                                <option value="">Select action...</option>
-                                                                <option value="immediate">Immediate replacement</option>
-                                                                <option value="scheduled">Scheduled maintenance</option>
-                                                                <option value="monitor">Continue monitoring</option>
-                                                                <option value="none">No action required</option>
-                                                            </select>
+                                                                onValueChange={(val) => onUpdateMarker?.(marker.id, { finalAction: val })}
+                                                            />
                                                         </td>
                                                         <td className="py-2 px-3">
                                                             <button

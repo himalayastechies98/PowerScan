@@ -19,6 +19,8 @@ interface DistributionRecord {
     vehicle: string;
     carId: string | null;
     measures: { red: number; yellow: number };
+    immediateCount: number;
+    scheduledCount: number;
     type: string;
     lastMeasure: string;
 }
@@ -128,14 +130,12 @@ export function DistributionTable({
                                     </TableCell>
                                     <TableCell>{record.vehicle}</TableCell>
                                     <TableCell>
-                                        <div className="flex items-center gap-2">
-                                            <div className="flex items-center gap-1">
-                                                <div className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center text-white text-xs">
-                                                    {record.measures.red}
-                                                </div>
-                                                <div className="w-5 h-5 rounded-full bg-yellow-500 flex items-center justify-center text-white text-xs">
-                                                    {record.measures.yellow}
-                                                </div>
+                                        <div className="flex items-center gap-1">
+                                            <div className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center text-white text-xs" title="Immediate actions">
+                                                {record.immediateCount}
+                                            </div>
+                                            <div className="w-5 h-5 rounded-full bg-yellow-500 flex items-center justify-center text-white text-xs" title="Scheduled actions">
+                                                {record.scheduledCount}
                                             </div>
                                         </div>
                                     </TableCell>

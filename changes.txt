@@ -1,0 +1,12 @@
+Change Requests
+The thermal image display is functioning correctly; however, the temperature data remains inconsistent. -noted
+Platform Test – Checklist
+•	Thermal readings are displaying incorrect values - noted
+•	Actions are not mapped to the corresponding elements – make elements dynamic , it is static
+•	In the PDF report, the Endereço (address) should match the location information shown below the images – place information tab address on pdf 
+•	The QR code currently redirects to Street View; it should instead open Google Maps directly – redirect to pinned location instead of street view
+•	The Total Measures do not match the number of uploaded images -
+ In Statistics total measure should be the number of inspection 
+•	On the Distribution page, measures are not being calculated correctly for the associated actions – action needs to dynamically
+•	Alarm section needs to be removed as it is not being used.
+

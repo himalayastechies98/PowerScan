@@ -20,6 +20,8 @@ interface DistributionRecord {
   vehicle: string;
   carId: string | null;
   measures: { red: number; yellow: number };
+  immediateCount: number;
+  scheduledCount: number;
   type: string;
   lastMeasure: string;
 }
@@ -95,9 +97,63 @@ export default function Distribution() {
         vehicle: i.cars ? `${i.cars.name} ${i.cars.model}` : '-',
         carId: i.car_id,
         measures: { red: i.measures_red || 0, yellow: i.measures_yellow || 0 },
+        immediateCount: 0,
+        scheduledCount: 0,
         type: 'Thermo - T',
         lastMeasure: i.last_measure_date || '-',
       }));
+
+      // Fetch action counts from measure_actions for all inspections in one go
+      if (mapped.length > 0) {
+        const inspectionIds = mapped.map((r) => r.id);
+
+        // Get all measure IDs for these inspections
+        const { data: measureRows } = await supabase
+          .from('inspection_measure')
+          .select('id_unico, inspection_id')
+          .in('inspection_id', inspectionIds);
+
+        if (measureRows && measureRows.length > 0) {
+          // Build a measure_id → inspection_id lookup
+          const measureToInspection = new Map<string, string>();
+          measureRows.forEach((m: any) => measureToInspection.set(m.id_unico, m.inspection_id));
+
+          const measureIds = measureRows.map((m: any) => m.id_unico);
+
+          // Get all non-empty final actions for those measures
+          const { data: actions } = await supabase
+            .from('measure_actions')
+            .select('measure_id, final_action')
+            .in('measure_id', measureIds)
+            .in('final_action', ['immediate', 'scheduled']);
+
+          if (actions) {
+            // Count DISTINCT measures per inspection (not per action row).
+            // Use Sets so a measure with multiple immediate markers still counts as 1.
+            const immediateSets = new Map<string, Set<string>>();
+            const scheduledSets = new Map<string, Set<string>>();
+
+            actions.forEach((a: any) => {
+              const inspId = measureToInspection.get(a.measure_id);
+              if (!inspId) return;
+
+              if (a.final_action === 'immediate') {
+                if (!immediateSets.has(inspId)) immediateSets.set(inspId, new Set());
+                immediateSets.get(inspId)!.add(a.measure_id);
+              } else if (a.final_action === 'scheduled') {
+                if (!scheduledSets.has(inspId)) scheduledSets.set(inspId, new Set());
+                scheduledSets.get(inspId)!.add(a.measure_id);
+              }
+            });
+
+            // Merge counts into mapped records
+            mapped.forEach((r) => {
+              r.immediateCount = immediateSets.get(r.id)?.size ?? 0;
+              r.scheduledCount = scheduledSets.get(r.id)?.size ?? 0;
+            });
+          }
+        }
+      }
 
       setInspectionsData(mapped);
     } catch (error) {
