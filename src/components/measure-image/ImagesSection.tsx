@@ -301,9 +301,9 @@ export function ImagesSection({ isOpen, onOpenChange, measureImages, markers: ex
                                     )}
                                 </div>
 
-                                {/* Loading thermal data */}
+                                {/* Loading thermal data - overlays on top of original image */}
                                 {thermalLoading && !isTransitioning && (
-                                    <div className="absolute inset-0 flex items-center justify-center bg-muted z-30">
+                                    <div className="absolute inset-0 flex items-center justify-center bg-muted/70 backdrop-blur-sm z-30">
                                         <div className="flex flex-col items-center gap-4">
                                             <div className="relative w-12 h-12">
                                                 <div className="absolute inset-0 border-2 border-muted-foreground/20 rounded-full" />
@@ -324,7 +324,7 @@ export function ImagesSection({ isOpen, onOpenChange, measureImages, markers: ex
                                     </div>
                                 )}
 
-                                {/* Thermal Image/Canvas */}
+                                {/* Original image - always shown as base layer */}
                                 <div className={`h-full min-h-[480px] transition-opacity duration-300 ${showContent ? 'opacity-100' : 'opacity-0'}`}>
                                     {thermalData ? (
                                         <ThermalCanvas

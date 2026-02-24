@@ -3,7 +3,13 @@ import { ThermalData } from '@/components/measure-image/ThermalCanvas';
 
 // Use environment variable, fallback to local for development
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-const THERMAL_API_URL = `${API_BASE_URL}/api/thermal`;
+
+// VITE_THERMAL_MODE = 'sdk' → uses FLIR SDK (real thermal data)
+// VITE_THERMAL_MODE = 'estimated' or unset → uses brightness-based estimation
+const THERMAL_MODE = import.meta.env.VITE_THERMAL_MODE || 'estimated';
+const THERMAL_API_URL = THERMAL_MODE === 'sdk'
+    ? `${API_BASE_URL}/api/thermal-sdk/upload`
+    : `${API_BASE_URL}/api/thermal`;
 
 export function useThermalData() {
     const [thermalData, setThermalData] = useState<ThermalData | null>(null);

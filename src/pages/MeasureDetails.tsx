@@ -40,12 +40,15 @@ function createPinIcon(color: string, size: number = 32) {
     <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size * 1.3}" viewBox="0 0 24 32">
       <defs>
         <filter id="shadow" x="-20%" y="-10%" width="140%" height="140%">
-          <feDropShadow dx="0" dy="1" stdDeviation="1.5" flood-color="#00000040"/>
+          <feDropShadow dx="0" dy="1" stdDeviation="1.5" flood-color="#00000030"/>
         </filter>
       </defs>
-      <path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 20 12 20s12-11 12-20C24 5.4 18.6 0 12 0z" fill="${color}" filter="url(#shadow)" stroke="white" stroke-width="1.5"/>
-      <circle cx="12" cy="11" r="5" fill="white" opacity="0.9"/>
-      <circle cx="12" cy="11" r="3" fill="${color}"/>
+      <path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 20 12 20s12-11 12-20C24 5.4 18.6 0 12 0z"
+        fill="${color}" fill-opacity="0.15"
+        stroke="${color}" stroke-width="2"
+        filter="url(#shadow)"/>
+      <circle cx="12" cy="11" r="4" fill="${color}" opacity="0.9"/>
+      <circle cx="12" cy="11" r="2" fill="white" opacity="0.95"/>
     </svg>`;
   return L.divIcon({
     html: svg,
@@ -419,8 +422,8 @@ export default function MeasureDetails() {
           <DashboardHeader
             breadcrumbs={[
               { label: t('home'), path: "/" },
-              { label: t('inspections'), path: "/distribution" },
-              { label: t('distribution'), path: "/distribution" }
+              { label: t('distribution'), path: "/distribution" },
+              { label: t('measuresCarThermographic'), path: "" }
             ]}
             title={t('dashboardTitle')}
             subtitle={t('dashboardSubtitle')}
@@ -722,11 +725,11 @@ export default function MeasureDetails() {
                         <Label className="text-xs font-semibold">Legend</Label>
                         <div className="space-y-2 mt-2">
                           <div className="flex items-center gap-2">
-                            <svg width="16" height="20" viewBox="0 0 24 32"><path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 20 12 20s12-11 12-20C24 5.4 18.6 0 12 0z" fill="#ef4444" stroke="white" strokeWidth="1.5" /><circle cx="12" cy="11" r="5" fill="white" opacity="0.9" /><circle cx="12" cy="11" r="3" fill="#ef4444" /></svg>
+                            <svg width="16" height="20" viewBox="0 0 24 32"><path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 20 12 20s12-11 12-20C24 5.4 18.6 0 12 0z" fill="#ef4444" fill-opacity="0.15" stroke="#ef4444" stroke-width="2" /><circle cx="12" cy="11" r="4" fill="#ef4444" opacity="0.9" /><circle cx="12" cy="11" r="2" fill="white" opacity="0.95" /></svg>
                             <span className="text-xs">Hotspot (Temperature detected)</span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <svg width="14" height="18" viewBox="0 0 24 32"><path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 20 12 20s12-11 12-20C24 5.4 18.6 0 12 0z" fill="#3b82f6" stroke="white" strokeWidth="1.5" /><circle cx="12" cy="11" r="5" fill="white" opacity="0.9" /><circle cx="12" cy="11" r="3" fill="#3b82f6" /></svg>
+                            <svg width="14" height="18" viewBox="0 0 24 32"><path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 20 12 20s12-11 12-20C24 5.4 18.6 0 12 0z" fill="#3b82f6" fill-opacity="0.15" stroke="#3b82f6" stroke-width="2" /><circle cx="12" cy="11" r="4" fill="#3b82f6" opacity="0.9" /><circle cx="12" cy="11" r="2" fill="white" opacity="0.95" /></svg>
                             <span className="text-xs">Measure (No temperature)</span>
                           </div>
                           <div className="flex items-center gap-2">
