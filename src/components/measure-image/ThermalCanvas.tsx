@@ -23,6 +23,7 @@ export interface Marker {
     temperature: number;
     elementType: string;
     finalAction: string;
+    operativeNumber?: string;
 }
 
 interface ThermalCanvasProps {

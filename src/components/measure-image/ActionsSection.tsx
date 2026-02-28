@@ -68,6 +68,7 @@ export function ActionsSection({ isOpen, onOpenChange, markers = [], onUpdateMar
                         temperature: Number(row.temperature),
                         elementType: row.element_type || 'Electrical Asset',
                         finalAction: row.final_action || '',
+                        operativeNumber: row.operative_number || '',
                     }));
                     onLoadMarkers(loadedMarkers);
                 }
@@ -113,6 +114,7 @@ export function ActionsSection({ isOpen, onOpenChange, markers = [], onUpdateMar
                     temperature: marker.temperature,
                     element_type: marker.elementType,
                     final_action: marker.finalAction || '',
+                    operative_number: marker.operativeNumber || '',
                 }));
 
                 const { error: insertError } = await supabase
@@ -164,6 +166,7 @@ export function ActionsSection({ isOpen, onOpenChange, markers = [], onUpdateMar
                                                 <th className="text-left py-2 px-3 text-xs font-semibold w-8">#</th>
                                                 <th className="text-left py-2 px-3 text-xs font-semibold">ELEMENT</th>
                                                 <th className="text-left py-2 px-3 text-xs font-semibold">POSITION</th>
+                                                <th className="text-left py-2 px-3 text-xs font-semibold">OP. NUMBER</th>
                                                 <th className="text-left py-2 px-3 text-xs font-semibold">TEMPERATURE</th>
                                                 <th className="text-left py-2 px-3 text-xs font-semibold">FINAL ACTION</th>
                                                 <th className="text-left py-2 px-3 text-xs font-semibold w-10"></th>
@@ -172,7 +175,7 @@ export function ActionsSection({ isOpen, onOpenChange, markers = [], onUpdateMar
                                         <tbody>
                                             {markers.length === 0 ? (
                                                 <tr className="border-b hover:bg-muted/30">
-                                                    <td className="py-2 px-3" colSpan={6}>
+                                                    <td className="py-2 px-3" colSpan={7}>
                                                         <div className="text-xs text-muted-foreground text-center">
                                                             No markers placed. Click "Add Marker" in the toolbar above to add elements.
                                                         </div>
@@ -195,6 +198,16 @@ export function ActionsSection({ isOpen, onOpenChange, markers = [], onUpdateMar
                                                         </td>
                                                         <td className="py-2 px-3 font-mono text-xs text-muted-foreground">
                                                             [{marker.x}, {marker.y}]
+                                                        </td>
+                                                        <td className="py-2 px-3">
+                                                            <input
+                                                                type="text"
+                                                                value={marker.operativeNumber ?? ''}
+                                                                onChange={(e) => onUpdateMarker?.(marker.id, { operativeNumber: e.target.value })}
+                                                                placeholder="N/A"
+                                                                className="w-28 px-2 py-1 text-xs border rounded bg-background focus:outline-none focus:ring-1 focus:ring-ring font-mono"
+                                                                title="Operational Register / Número Operativo"
+                                                            />
                                                         </td>
                                                         <td className="py-2 px-3">
                                                             <span className={`font-mono font-semibold ${marker.temperature > 50 ? 'text-red-600' : marker.temperature > 35 ? 'text-orange-600' : 'text-foreground'}`}>

@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
-import { ChevronDown, Loader2, Map, MapPin, Upload, Thermometer, ThermometerSnowflake, ThermometerSun, X, Building2 } from "lucide-react";
+import { ChevronDown, Loader2, Map, MapPin, Upload, Thermometer, ThermometerSnowflake, ThermometerSun, X, Building2, Wind, Droplets } from "lucide-react";
 import { excelDateToJS, excelTimeToJS } from "@/utils/dateUtils";
 import { Measure } from "@/hooks/useMeasureData";
 import { supabase } from "@/lib/supabase";
@@ -22,6 +22,8 @@ export function InformationSection({ isOpen, onOpenChange, measure, onMeasureUpd
     const [observations, setObservations] = useState(measure?.observations || "");
     const [maxTemp, setMaxTemp] = useState<string>(measure?.temp1_c != null ? String(measure.temp1_c) : "");
     const [minTemp, setMinTemp] = useState<string>(measure?.temp_minima_c != null ? String(measure.temp_minima_c) : "");
+    const [humidity, setHumidity] = useState<string>(measure?.umidade_relativa != null ? String(measure.umidade_relativa) : "");
+    const [wind, setWind] = useState<string>(measure?.vel_do_ar_na_inspecao_ms != null ? String(measure.vel_do_ar_na_inspecao_ms) : "");
     const [isSaving, setIsSaving] = useState(false);
     const [hasChanges, setHasChanges] = useState(false);
     const [address, setAddress] = useState<string | null>(null);
@@ -35,6 +37,8 @@ export function InformationSection({ isOpen, onOpenChange, measure, onMeasureUpd
         setObservations(measure?.observations || "");
         setMaxTemp(measure?.temp1_c != null ? String(measure.temp1_c) : "");
         setMinTemp(measure?.temp_minima_c != null ? String(measure.temp_minima_c) : "");
+        setHumidity(measure?.umidade_relativa != null ? String(measure.umidade_relativa) : "");
+        setWind(measure?.vel_do_ar_na_inspecao_ms != null ? String(measure.vel_do_ar_na_inspecao_ms) : "");
         setHasChanges(false);
         // Load logo URL if path exists
         if (measure?.client_company_logo) {
@@ -86,24 +90,36 @@ export function InformationSection({ isOpen, onOpenChange, measure, onMeasureUpd
 
     const handleObservationsChange = (value: string) => {
         setObservations(value);
-        checkForChanges(value, maxTemp, minTemp);
+        checkForChanges(value, maxTemp, minTemp, humidity, wind);
     };
 
     const handleMaxTempChange = (value: string) => {
         setMaxTemp(value);
-        checkForChanges(observations, value, minTemp);
+        checkForChanges(observations, value, minTemp, humidity, wind);
     };
 
     const handleMinTempChange = (value: string) => {
         setMinTemp(value);
-        checkForChanges(observations, maxTemp, value);
+        checkForChanges(observations, maxTemp, value, humidity, wind);
     };
 
-    const checkForChanges = (obs: string, max: string, min: string) => {
+    const handleHumidityChange = (value: string) => {
+        setHumidity(value);
+        checkForChanges(observations, maxTemp, minTemp, value, wind);
+    };
+
+    const handleWindChange = (value: string) => {
+        setWind(value);
+        checkForChanges(observations, maxTemp, minTemp, humidity, value);
+    };
+
+    const checkForChanges = (obs: string, max: string, min: string, hum: string, wnd: string) => {
         const obsChanged = obs !== (measure?.observations || "");
         const maxChanged = max !== (measure?.temp1_c != null ? String(measure.temp1_c) : "");
         const minChanged = min !== (measure?.temp_minima_c != null ? String(measure.temp_minima_c) : "");
-        setHasChanges(obsChanged || maxChanged || minChanged);
+        const humChanged = hum !== (measure?.umidade_relativa != null ? String(measure.umidade_relativa) : "");
+        const wndChanged = wnd !== (measure?.vel_do_ar_na_inspecao_ms != null ? String(measure.vel_do_ar_na_inspecao_ms) : "");
+        setHasChanges(obsChanged || maxChanged || minChanged || humChanged || wndChanged);
     };
 
     const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -215,6 +231,10 @@ export function InformationSection({ isOpen, onOpenChange, measure, onMeasureUpd
             else updatePayload.temp1_c = null;
             if (minTemp !== "") updatePayload.temp_minima_c = parseFloat(minTemp);
             else updatePayload.temp_minima_c = null;
+            if (humidity !== "") updatePayload.umidade_relativa = parseFloat(humidity);
+            else updatePayload.umidade_relativa = null;
+            if (wind !== "") updatePayload.vel_do_ar_na_inspecao_ms = parseFloat(wind);
+            else updatePayload.vel_do_ar_na_inspecao_ms = null;
 
             const { data, error } = await supabase
                 .from('inspection_measure')
@@ -310,12 +330,41 @@ export function InformationSection({ isOpen, onOpenChange, measure, onMeasureUpd
                                 </div>
                             </div>
                             <div>
-                                <div className="text-sm font-bold mb-1.5">{t('relative_humidity')}</div>
-                                <div className="text-sm">-</div>
+                                <div className="text-sm font-bold mb-1.5 flex items-center gap-1.5">
+                                    <Droplets className="w-3.5 h-3.5 text-blue-400" />
+                                    {t('relative_humidity')}
+                                </div>
+                                <div className="flex items-center gap-1">
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        max="100"
+                                        className="w-24 px-2 py-1 text-sm border rounded-md bg-background text-blue-500 font-medium focus:outline-none focus:ring-2 focus:ring-ring"
+                                        placeholder="—"
+                                        value={humidity}
+                                        onChange={(e) => handleHumidityChange(e.target.value)}
+                                    />
+                                    <span className="text-sm text-muted-foreground">%</span>
+                                </div>
                             </div>
                             <div>
-                                <div className="text-sm font-bold mb-1.5">{t('wind')}</div>
-                                <div className="text-sm">{measure?.vel_do_ar_na_inspecao_ms ? `${measure.vel_do_ar_na_inspecao_ms} m/s` : '-'}</div>
+                                <div className="text-sm font-bold mb-1.5 flex items-center gap-1.5">
+                                    <Wind className="w-3.5 h-3.5 text-sky-500" />
+                                    {t('wind')}
+                                </div>
+                                <div className="flex items-center gap-1">
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        className="w-24 px-2 py-1 text-sm border rounded-md bg-background text-sky-600 font-medium focus:outline-none focus:ring-2 focus:ring-ring"
+                                        placeholder="—"
+                                        value={wind}
+                                        onChange={(e) => handleWindChange(e.target.value)}
+                                    />
+                                    <span className="text-sm text-muted-foreground">m/s</span>
+                                </div>
                             </div>
                             <div>
                                 <div className="text-sm font-bold mb-1.5">{t('temperature')}</div>

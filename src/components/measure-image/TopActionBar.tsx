@@ -43,7 +43,7 @@ export function TopActionBar({ inspectionId, measure, measureImages = [] }: TopA
 
             // Map actions to elements format for the PDF table
             const elements = (actions || []).map((action: any) => ({
-                numero_operativo: 'N/A',
+                numero_operativo: action.operative_number || 'N/A',
                 elemento: `(${action.marker_index}) ${action.element_type || '-'}`,
                 temperatura: action.temperature ? `${action.temperature}` : '-',
                 metodo: '-',
