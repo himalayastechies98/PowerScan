@@ -76,6 +76,7 @@ const layerOptions = [
   { id: "measures", label: "Measures" },
   { id: "hotspots", label: "Hotspots" },
   { id: "feeder", label: "Feeder" },
+  { id: "trace", label: "Trace" },
 ];
 
 export default function MeasureDetails() {
@@ -90,7 +91,7 @@ export default function MeasureDetails() {
   const [measuresOpen, setMeasuresOpen] = useState(true);
   const [mapOpen, setMapOpen] = useState(true);
   const [mapType, setMapType] = useState<"satellite" | "streets">("streets");
-  const [selectedLayers, setSelectedLayers] = useState<string[]>(["measures", "feeder"]);
+  const [selectedLayers, setSelectedLayers] = useState<string[]>(["measures", "feeder", "trace"]);
   const mapRef = useRef<LeafletMap | null>(null);
   const [feederGeoJson, setFeederGeoJson] = useState<any>(null);
   const [feederBounds, setFeederBounds] = useState<[[number, number], [number, number]] | null>(null);
@@ -101,13 +102,35 @@ export default function MeasureDetails() {
   const [measures, setMeasures] = useState<any[]>([]);
   const [isLoadingMeasures, setIsLoadingMeasures] = useState(false);
   const [measureActionsMap, setMeasureActionsMap] = useState<Map<string, string>>(new Map());
+  // Trace state
+  const [traceUploads, setTraceUploads] = useState<{ id: string; file_name: string; upload_date: string; kml_geojson: any }[]>([]);
+  const [isLoadingTraces, setIsLoadingTraces] = useState(false);
 
   // Fetch inspection measures
   useEffect(() => {
     if (id) {
       fetchInspectionMeasures();
+      fetchTraces();
     }
   }, [id]);
+
+  // Fetch trace uploads for this inspection
+  const fetchTraces = async () => {
+    if (!id) return;
+    setIsLoadingTraces(true);
+    try {
+      const { data, error } = await supabase
+        .from('inspection_traces')
+        .select('id, file_name, upload_date, kml_geojson')
+        .eq('inspection_id', id)
+        .order('upload_date', { ascending: false });
+      if (!error && data) setTraceUploads(data);
+    } catch (err) {
+      console.error('Error fetching traces:', err);
+    } finally {
+      setIsLoadingTraces(false);
+    }
+  };
 
   const fetchInspectionMeasures = async () => {
     try {
@@ -266,6 +289,58 @@ export default function MeasureDetails() {
     });
 
     return totalLength;
+  };
+
+  // Calculate total distance (km) from a trace GeoJSON
+  const calculateTraceDistance = (geoJson: any): number => {
+    if (!geoJson?.features) return 0;
+    const toRad = (d: number) => d * (Math.PI / 180);
+    const hav = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+      const R = 6371;
+      const dLat = toRad(lat2 - lat1), dLon = toRad(lon2 - lon1);
+      const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    };
+    const lineLen = (coords: number[][]): number => {
+      let d = 0;
+      for (let i = 0; i < coords.length - 1; i++) {
+        d += hav(coords[i][1], coords[i][0], coords[i + 1][1], coords[i + 1][0]);
+      }
+      return d;
+    };
+    return geoJson.features.reduce((total: number, f: any) => {
+      if (!f.geometry) return total;
+      if (f.geometry.type === 'LineString') return total + lineLen(f.geometry.coordinates);
+      if (f.geometry.type === 'MultiLineString') return total + f.geometry.coordinates.reduce((s: number, l: number[][]) => s + lineLen(l), 0);
+      return total;
+    }, 0);
+  };
+
+  // Calculate duration string from coordTimes (produced by @tmcw/togeojson for gx:Track)
+  const calculateTraceDuration = (geoJson: any): string | null => {
+    if (!geoJson?.features) return null;
+    const allTimes: Date[] = [];
+    geoJson.features.forEach((f: any) => {
+      // togeojson stores timestamps in properties.coordTimes (array of ISO strings) for tracks
+      const ct: string[] | undefined = f.properties?.coordTimes;
+      if (ct?.length) {
+        ct.forEach((t: string) => { const d = new Date(t); if (!isNaN(d.getTime())) allTimes.push(d); });
+      }
+    });
+    if (allTimes.length < 2) return null;
+    const first = Math.min(...allTimes.map(d => d.getTime()));
+    const last = Math.max(...allTimes.map(d => d.getTime()));
+    const secs = Math.round((last - first) / 1000);
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    const s = secs % 60;
+    return `${h}h ${m}min ${s}s`;
+  };
+
+  // Format upload_date (YYYY-MM-DD) → DD/MM/YYYY
+  const formatTraceDate = (dateStr: string): string => {
+    const [y, mo, d] = dateStr.split('-');
+    return `${d}/${mo}/${y}`;
   };
 
   // Load feeder data when component mounts
@@ -500,15 +575,32 @@ export default function MeasureDetails() {
                         <Card>
                           <CardHeader className="pb-3">
                             <CardTitle className="text-base font-semibold flex items-center gap-2">
-                              <BarChart3 className="w-4 h-4 text-primary" />
+                              <Calendar className="w-4 h-4 text-primary" />
                               {t('dailyStatistics')}
                             </CardTitle>
                           </CardHeader>
                           <CardContent>
-                            <div className="flex justify-between items-center py-2">
-                              <span className="text-sm font-medium">30/09/2025</span>
-                              <span className="text-sm text-muted-foreground">20.97 km • 1h 10min 5s</span>
-                            </div>
+                            {isLoadingTraces ? (
+                              <p className="text-sm text-muted-foreground py-2">Loading…</p>
+                            ) : traceUploads.length === 0 ? (
+                              <p className="text-sm text-muted-foreground py-2">No traces uploaded yet. Upload a .kml file on the Upload page.</p>
+                            ) : (
+                              <div className="space-y-1">
+                                {traceUploads.map((trace) => {
+                                  const dist = calculateTraceDistance(trace.kml_geojson);
+                                  const dur = calculateTraceDuration(trace.kml_geojson);
+                                  return (
+                                    <div key={trace.id} className="flex justify-between items-center py-2 border-b border-border/50 last:border-0">
+                                      <span className="text-sm font-bold">{formatTraceDate(trace.upload_date)}</span>
+                                      <span className="text-sm text-muted-foreground">
+                                        {dist > 0 ? `${dist.toFixed(2)} km` : '-'}
+                                        {dur ? ` • ${dur}` : ''}
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
                           </CardContent>
                         </Card>
                       </div>
@@ -695,6 +787,24 @@ export default function MeasureDetails() {
                           />
                         )}
 
+                        {/* Render trace lines if trace layer is selected */}
+                        {selectedLayers.includes("trace") && traceUploads.map((trace) =>
+                          trace.kml_geojson ? (
+                            <GeoJSON
+                              key={`trace-${trace.id}`}
+                              data={trace.kml_geojson}
+                              {...({
+                                pathOptions: {
+                                  color: "#ef4444",
+                                  weight: 5,
+                                  opacity: 0.85,
+                                },
+                                pointToLayer: () => null,
+                              } as any)}
+                            />
+                          ) : null
+                        )}
+
                         {/* Render measure markers if measures layer is selected */}
                         {selectedLayers.includes("measures") && measures.map((measure) => {
                           if (!measure.latitude || !measure.longitude) return null;
@@ -735,6 +845,10 @@ export default function MeasureDetails() {
                           <div className="flex items-center gap-2">
                             <div className="w-4 h-1 bg-[#0d6efd] rounded"></div>
                             <span className="text-xs">Feeder Line</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-4 h-1 bg-[#ef4444] rounded"></div>
+                            <span className="text-xs">GPS Trace</span>
                           </div>
                         </div>
                       </div>

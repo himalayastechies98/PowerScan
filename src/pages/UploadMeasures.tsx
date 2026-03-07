@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
-import { Upload } from "lucide-react";
+import { Upload, Map } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router-dom";
 import { Sidebar } from "@/components/dashboard/Sidebar";
@@ -19,6 +19,7 @@ import {
 import { UploadDropZone } from "@/components/upload/UploadDropZone";
 import { UploadProgressBar } from "@/components/upload/UploadProgressBar";
 import { UploadStats } from "@/components/upload/UploadStats";
+import * as toGeoJSON from "@tmcw/togeojson";
 
 interface UploadFile {
   id: string;
@@ -26,6 +27,14 @@ interface UploadFile {
   size: number;
   status: "queue" | "sending" | "error" | "complete";
 }
+
+type UploadStats = {
+  total: number;
+  queue: number;
+  uploaded: number;
+  errors: number;
+  sending: number;
+};
 
 export default function UploadMeasures() {
   const { t } = useTranslation();
@@ -35,9 +44,10 @@ export default function UploadMeasures() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [files, setFiles] = useState<UploadFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [activeTab, setActiveTab] = useState<'measures' | 'trace'>('measures');
 
   // Measure upload statistics
-  const [uploadStats, setUploadStats] = useState({
+  const [uploadStats, setUploadStats] = useState<UploadStats>({
     total: 0,
     queue: 0,
     uploaded: 0,
@@ -50,6 +60,21 @@ export default function UploadMeasures() {
   const [isUploading, setIsUploading] = useState(false);
   const [currentProcessing, setCurrentProcessing] = useState<string>('');
 
+  // ─── KML / Trace upload state ───────────────────────────────────────────────
+  const [isKmlDragging, setIsKmlDragging] = useState(false);
+  const [isKmlUploading, setIsKmlUploading] = useState(false);
+  const [kmlProgress, setKmlProgress] = useState(0);
+  const [kmlCurrentProcessing, setKmlCurrentProcessing] = useState('');
+  const [kmlStats, setKmlStats] = useState<UploadStats>({
+    total: 0,
+    queue: 0,
+    uploaded: 0,
+    errors: 0,
+    sending: 0,
+  });
+
+  // ─── ZIP (measures) handlers ────────────────────────────────────────────────
+
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(true);
@@ -59,14 +84,14 @@ export default function UploadMeasures() {
     setIsDragging(false);
   };
 
-  const processZipFile = async (file: File, inspectionId?: string): Promise<{ error: string | null; stats?: { total: number; queue: number; uploaded: number; errors: number; sending: number } }> => {
+  const processZipFile = async (file: File, inspectionId?: string): Promise<{ error: string | null; stats?: UploadStats }> => {
     try {
       console.log(`Processing ZIP file: ${file.name}`);
 
       // Extract ZIP contents
       const { zipContent, excelFiles, imageFiles } = await extractZipContents(file);
 
-      console.log("� ZIP File Contents:");
+      console.log("📦 ZIP File Contents:");
       console.log("=".repeat(50));
       console.log(`📊 Excel files found: ${excelFiles.length}`);
       console.log(`🖼️ Image files found: ${imageFiles.length}`);
@@ -74,18 +99,14 @@ export default function UploadMeasures() {
       // Validate exactly one Excel file
       if (excelFiles.length === 0) {
         console.error(`❌ ERROR: No Excel file found in ${file.name}`);
-        console.log("=".repeat(50));
         return { error: "No Excel file (.xlsx or .xls) found in the ZIP file. Please ensure your ZIP contains exactly one Excel file." };
       }
 
       if (excelFiles.length > 1) {
         console.error(`❌ ERROR: Multiple Excel files found in ${file.name}`);
-        console.error("Excel files:", excelFiles);
-        console.log("=".repeat(50));
         return { error: `Multiple Excel files found (${excelFiles.length}). Please ensure your ZIP contains exactly one Excel file.` };
       }
 
-      // Success - exactly one Excel file
       console.log(`✅ Excel file: ${excelFiles[0]}`);
       console.log("=".repeat(50));
 
@@ -97,17 +118,13 @@ export default function UploadMeasures() {
         // Normalize all rows
         const normalizedData = jsonData.map(normalizeExcelRow);
 
-        // Log results
         console.log("📊 Excel Parsing Results:");
         console.log("=".repeat(50));
         console.log(`Sheet name: ${sheetName}`);
         console.log(`Total rows: ${jsonData.length}`);
-        console.log("\n🔄 Normalized Data:");
-        console.log("One fully mapped object:");
-        console.log(JSON.stringify(normalizedData[0], null, 2));
         console.log("=".repeat(50));
 
-        // Update stats immediately - show items in queue
+        // Update stats immediately
         setUploadStats({
           total: normalizedData.length,
           queue: normalizedData.length,
@@ -116,14 +133,12 @@ export default function UploadMeasures() {
           sending: 0,
         });
 
-        // Insert into Supabase
         if (!inspectionId) {
           console.warn("⚠️ No inspection ID provided - skipping database insert");
           return { error: null };
         }
 
         console.log("\n💾 Inserting data into Supabase...");
-        console.log("=".repeat(50));
 
         setIsUploading(true);
         let insertedCount = 0;
@@ -131,35 +146,24 @@ export default function UploadMeasures() {
 
         for (let i = 0; i < normalizedData.length; i++) {
           const row = normalizedData[i];
-
-          // Update current processing status
           setCurrentProcessing(`Processing registro ${row.registroNum} (${i + 1}/${normalizedData.length})`);
 
           try {
-            // 1. Prepare images and check metadata BEFORE insertion
             const imagesToUpload: { blob: Blob; fileName: string; type: string }[] = [];
 
             if (row.images && row.images.length > 0) {
               for (const imageObj of row.images) {
                 try {
-                  const { entry, path } = findImageInZip(zipContent, imageObj.value);
+                  const { entry } = findImageInZip(zipContent, imageObj.value);
                   if (entry) {
                     const blob = await entry.async('blob');
                     const meta = await checkImageMetadata(blob);
-
-                    // Add type to the image object that will be saved to DB
-                    // (This modifies the object in the row.images array)
                     (imageObj as any).type = meta.isThermal ? 'thermal' : 'optical';
-
-                    console.log(`🖼️ Image Analysis: ${imageObj.value} is ${meta.isThermal ? 'THERMAL 🔥' : 'OPTICAL 📷'} (${meta.make} ${meta.model})`);
-
                     imagesToUpload.push({
                       blob,
                       fileName: imageObj.value,
                       type: meta.isThermal ? 'thermal' : 'optical'
                     });
-                  } else {
-                    console.warn(`⚠️ Image not found in ZIP: ${imageObj.value}`);
                   }
                 } catch (e) {
                   console.error(`Error analyzing image ${imageObj.value}`, e);
@@ -167,7 +171,6 @@ export default function UploadMeasures() {
               }
             }
 
-            // 2. Upsert into Supabase (merge with existing records on re-upload)
             const { error } = await supabase
               .from('inspection_measure')
               .upsert({
@@ -202,58 +205,35 @@ export default function UploadMeasures() {
                 corrente_na_inspecao_a: row.correnteNaInspecaoA,
                 vel_do_ar_na_inspecao_ms: row.velDoArNaInspecaoMs,
                 num_imagens: row.numImagens,
-                images: row.images, // Updated with types
+                images: row.images,
               }, { onConflict: 'inspection_id,registro_num' });
 
             if (error) {
-              failedRows.push({
-                registroNum: row.registroNum,
-                error: error.message
-              });
-              console.error(`❌ Failed to insert row ${row.registroNum}:`, error.message);
+              failedRows.push({ registroNum: row.registroNum, error: error.message });
             } else {
               insertedCount++;
-
-              // 3. Upload images to Supabase Storage (using prepared blobs)
               if (imagesToUpload.length > 0) {
-                console.log(`📤 Uploading ${imagesToUpload.length} images for registro ${row.registroNum}...`);
-
-                for (const { blob, fileName, type } of imagesToUpload) {
+                for (const { blob, fileName } of imagesToUpload) {
                   try {
-                    // Create storage path
                     const storagePath = `inspection_${inspectionId}/registro_${row.registroNum}/${fileName}`;
-
-                    // Upload to Supabase Storage
-                    const { error: uploadError } = await supabase.storage
+                    await supabase.storage
                       .from('inspection-measure-images')
                       .upload(storagePath, blob, {
                         contentType: blob.type || 'image/jpeg',
                         upsert: true,
                       });
-
-                    if (uploadError) {
-                      console.error(`❌ Failed to upload image ${fileName}:`, uploadError.message);
-                    } else {
-                      console.log(`✅ Uploaded: ${storagePath} (${type})`);
-                    }
                   } catch (imageError: any) {
-                    console.error(`❌ Error processing image ${fileName}:`, imageError?.message || imageError);
+                    console.error(`❌ Error uploading image ${fileName}:`, imageError?.message);
                   }
                 }
               }
             }
           } catch (err: any) {
-            failedRows.push({
-              registroNum: row.registroNum,
-              error: err?.message || 'Unknown error'
-            });
-            console.error(`❌ Exception inserting row ${row.registroNum}:`, err);
+            failedRows.push({ registroNum: row.registroNum, error: err?.message || 'Unknown error' });
           }
 
-          // Update progress and stats in real-time
           const currentProgress = Math.round(((i + 1) / normalizedData.length) * 100);
           setUploadProgress(currentProgress);
-
           setUploadStats({
             total: normalizedData.length,
             queue: normalizedData.length - (i + 1),
@@ -263,76 +243,36 @@ export default function UploadMeasures() {
           });
         }
 
-        // Update last_measure_date in inspections table if any rows were inserted
+        // Update last_measure_date
         if (insertedCount > 0 && inspectionId) {
-          console.log(`📅 Updating last_measure_date for inspection ${inspectionId}...`);
-          try {
-            const { error: dateUpdateError } = await supabase
-              .from('inspections')
-              .update({
-                last_measure_date: new Date().toISOString().split('T')[0]
-              })
-              .eq('id_unico', inspectionId);
-
-            if (dateUpdateError) {
-              console.error('❌ Failed to update last_measure_date:', dateUpdateError.message);
-            } else {
-              console.log('✅ last_measure_date updated successfully');
-            }
-          } catch (dateErr) {
-            console.error('❌ Error updating last_measure_date:', dateErr);
-          }
+          await supabase
+            .from('inspections')
+            .update({ last_measure_date: new Date().toISOString().split('T')[0] })
+            .eq('id_unico', inspectionId);
         }
 
-        // Reset uploading state
         setIsUploading(false);
         setCurrentProcessing('');
 
-        console.log("=".repeat(50));
-        console.log(`✅ Successfully inserted: ${insertedCount} rows`);
-        console.log(`❌ Failed to insert: ${failedRows.length} rows`);
-
-        if (failedRows.length > 0) {
-          console.log("\nFailed rows:");
-          console.table(failedRows);
-        }
-
-        console.log("=".repeat(50));
-
-        // Show toast notification
         if (failedRows.length === 0) {
           toast.success(`Successfully uploaded ${insertedCount} measures!`);
-          // Auto redirect to measures page
           if (inspectionId) {
-            setTimeout(() => {
-              navigate(`/distribution/measures/${inspectionId}`);
-            }, 1000);
+            setTimeout(() => navigate(`/distribution/measures/${inspectionId}`), 1000);
           }
         } else {
           toast.warning(`Uploaded ${insertedCount} measures. ${failedRows.length} failed.`);
         }
 
-        // Return upload statistics
         return {
           error: null,
-          stats: {
-            total: normalizedData.length,
-            queue: 0,
-            uploaded: insertedCount,
-            errors: failedRows.length,
-            sending: 0,
-          }
+          stats: { total: normalizedData.length, queue: 0, uploaded: insertedCount, errors: failedRows.length, sending: 0 }
         };
 
       } catch (parseError: any) {
-        console.error("Error parsing Excel file:", parseError);
-        return { error: parseError.message || "Failed to parse Excel file. Please ensure it's a valid Excel file." };
+        return { error: parseError.message || "Failed to parse Excel file." };
       }
 
-      return { error: null };
-
     } catch (error) {
-      console.error("Error processing ZIP file:", error);
       return { error: "Failed to read ZIP file. Please ensure it's a valid ZIP archive." };
     }
   };
@@ -343,19 +283,14 @@ export default function UploadMeasures() {
 
     const droppedFiles = Array.from(e.dataTransfer.files);
 
-    // Process ZIP files
     for (const file of droppedFiles) {
       if (file.name.toLowerCase().endsWith('.zip')) {
         const result = await processZipFile(file, inspectionId);
         if (result.error) {
-          toast.error(result.error, {
-            duration: 5000,
-          });
+          toast.error(result.error, { duration: 5000 });
           return;
         }
-        if (result.stats) {
-          setUploadStats(result.stats);
-        }
+        if (result.stats) setUploadStats(result.stats);
       }
     }
 
@@ -365,7 +300,6 @@ export default function UploadMeasures() {
       size: file.size,
       status: "queue" as const,
     }));
-
     setFiles([...files, ...newFiles]);
   };
 
@@ -373,19 +307,14 @@ export default function UploadMeasures() {
     if (e.target.files) {
       const selectedFiles = Array.from(e.target.files);
 
-      // Process ZIP files
       for (const file of selectedFiles) {
         if (file.name.toLowerCase().endsWith('.zip')) {
           const result = await processZipFile(file, inspectionId);
           if (result.error) {
-            toast.error(result.error, {
-              duration: 5000,
-            });
+            toast.error(result.error, { duration: 5000 });
             return;
           }
-          if (result.stats) {
-            setUploadStats(result.stats);
-          }
+          if (result.stats) setUploadStats(result.stats);
         }
       }
 
@@ -395,23 +324,125 @@ export default function UploadMeasures() {
         size: file.size,
         status: "queue" as const,
       }));
-
       setFiles([...files, ...newFiles]);
     }
   };
 
   const handleClear = () => {
     setFiles([]);
-    setUploadStats({
-      total: 0,
-      queue: 0,
-      uploaded: 0,
-      errors: 0,
-      sending: 0,
-    });
+    setUploadStats({ total: 0, queue: 0, uploaded: 0, errors: 0, sending: 0 });
     setUploadProgress(0);
     setIsUploading(false);
     setCurrentProcessing('');
+  };
+
+  // ─── KML / Trace handlers ────────────────────────────────────────────────────
+
+  const processKmlFile = async (file: File): Promise<{ error: string | null }> => {
+    if (!file.name.toLowerCase().endsWith('.kml')) {
+      return { error: "Only .kml files are accepted for traces." };
+    }
+    if (!inspectionId) {
+      return { error: "No inspection ID — cannot upload trace." };
+    }
+
+    setIsKmlUploading(true);
+    setKmlProgress(10);
+    setKmlCurrentProcessing(`Parsing ${file.name}…`);
+    setKmlStats({ total: 1, queue: 1, uploaded: 0, errors: 0, sending: 1 });
+
+    try {
+      // 1. Read KML text and parse to GeoJSON
+      const text = await file.text();
+      const doc = new DOMParser().parseFromString(text, 'text/xml');
+      const geoJson = toGeoJSON.kml(doc);
+      setKmlProgress(60);
+
+      // 2. Insert row in inspection_traces (store GeoJSON directly — no storage bucket needed)
+      const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+      setKmlCurrentProcessing(`Saving trace record…`);
+      const { error: dbError } = await supabase
+        .from('inspection_traces')
+        .insert({
+          inspection_id: inspectionId,
+          file_name: file.name,
+          file_path: '',           // no storage bucket — GeoJSON is stored in kml_geojson column
+          upload_date: today,
+          kml_geojson: geoJson,
+        });
+
+      if (dbError) {
+        console.error('DB insert error:', dbError);
+        return { error: `Database error: ${dbError.message}` };
+      }
+
+      setKmlProgress(100);
+      setKmlStats({ total: 1, queue: 0, uploaded: 1, errors: 0, sending: 0 });
+
+      // Redirect to measures page after successful upload
+      if (inspectionId) {
+        setTimeout(() => {
+          navigate(`/distribution/measures/${inspectionId}`);
+        }, 1000);
+      }
+
+      return { error: null };
+
+    } catch (err: any) {
+      console.error('KML processing error:', err);
+      return { error: err?.message || 'Failed to process KML file.' };
+    } finally {
+      setIsKmlUploading(false);
+      setKmlCurrentProcessing('');
+    }
+  };
+
+  const handleKmlDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsKmlDragging(true);
+  };
+
+  const handleKmlDragLeave = () => setIsKmlDragging(false);
+
+  const handleKmlDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsKmlDragging(false);
+    const droppedFiles = Array.from(e.dataTransfer.files);
+    for (const file of droppedFiles) {
+      if (file.name.toLowerCase().endsWith('.kml')) {
+        const result = await processKmlFile(file);
+        if (result.error) {
+          toast.error(result.error, { duration: 5000 });
+          setKmlStats(s => ({ ...s, errors: s.errors + 1, sending: 0, queue: 0 }));
+        } else {
+          toast.success(`Trace "${file.name}" uploaded successfully!`);
+        }
+      }
+    }
+  };
+
+  const handleKmlFileInput = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const selectedFiles = Array.from(e.target.files);
+      for (const file of selectedFiles) {
+        if (file.name.toLowerCase().endsWith('.kml')) {
+          const result = await processKmlFile(file);
+          if (result.error) {
+            toast.error(result.error, { duration: 5000 });
+            setKmlStats(s => ({ ...s, errors: s.errors + 1, sending: 0, queue: 0 }));
+          } else {
+            toast.success(`Trace "${file.name}" uploaded successfully!`);
+          }
+        }
+      }
+    }
+  };
+
+  const handleKmlClear = () => {
+    setKmlStats({ total: 0, queue: 0, uploaded: 0, errors: 0, sending: 0 });
+    setKmlProgress(0);
+    setIsKmlUploading(false);
+    setKmlCurrentProcessing('');
   };
 
   return (
@@ -446,25 +477,73 @@ export default function UploadMeasures() {
               </Card>
             )}
 
-            <UploadDropZone
-              isDragging={isDragging}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-              onFileSelect={handleFileInput}
-              inputId="vehicle-file-input"
-              title="You are uploading thermographic measures / traces"
-            />
+            {/* ── Tab Switcher ──────────────────────────────────────────── */}
+            <Card className="p-1 flex gap-1 w-fit">
+              <button
+                onClick={() => setActiveTab('measures')}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-md text-sm font-medium transition-all ${activeTab === 'measures'
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  }`}
+              >
+                <Upload className="h-4 w-4" />
+                Measures <span className="text-xs opacity-70">.zip</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('trace')}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-md text-sm font-medium transition-all ${activeTab === 'trace'
+                  ? 'bg-green-600 text-white shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  }`}
+              >
+                <Map className="h-4 w-4" />
+                GPS Trace <span className="text-xs opacity-70">.kml</span>
+              </button>
+            </Card>
 
-            {/* Upload Progress */}
-            <UploadProgressBar
-              isVisible={isUploading}
-              currentProcessing={currentProcessing}
-              progress={uploadProgress}
-            />
-
-            {/* Upload Status */}
-            <UploadStats stats={uploadStats} onClear={handleClear} />
+            {/* ── Active panel ──────────────────────────────────────────── */}
+            {activeTab === 'measures' ? (
+              <div className="space-y-4">
+                <UploadDropZone
+                  isDragging={isDragging}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  onFileSelect={handleFileInput}
+                  inputId="measure-file-input"
+                  title="Upload Thermographic Measures (.zip)"
+                  accept=".zip"
+                  acceptLabel="Only .zip files are accepted (must contain one Excel sheet + images)"
+                />
+                <UploadProgressBar
+                  isVisible={isUploading}
+                  currentProcessing={currentProcessing}
+                  progress={uploadProgress}
+                />
+                <UploadStats stats={uploadStats} onClear={handleClear} />
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <UploadDropZone
+                  isDragging={isKmlDragging}
+                  onDragOver={handleKmlDragOver}
+                  onDragLeave={handleKmlDragLeave}
+                  onDrop={handleKmlDrop}
+                  onFileSelect={handleKmlFileInput}
+                  inputId="kml-file-input"
+                  title="Upload GPS Trace (.kml)"
+                  accept=".kml"
+                  acceptLabel="Only .kml files are accepted (Google Earth / GPS trace format)"
+                  icon={<Map className="mx-auto h-12 w-12 text-green-500 mb-4" />}
+                />
+                <UploadProgressBar
+                  isVisible={isKmlUploading}
+                  currentProcessing={kmlCurrentProcessing}
+                  progress={kmlProgress}
+                />
+                <UploadStats stats={kmlStats} onClear={handleKmlClear} />
+              </div>
+            )}
           </div>
 
           <footer className="mt-8 pt-6 border-t border-border flex flex-col sm:flex-row justify-between items-center gap-4 text-sm text-muted-foreground">
