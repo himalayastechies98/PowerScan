@@ -1,4 +1,4 @@
-# PowerScan - React Vision Maker
+# PowerScan - React Vision Maker 
 
 A modern web application for managing inspections, clients, and system configurations.
 
